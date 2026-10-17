@@ -21,8 +21,48 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK cmdline-tools
+        shell: bash
+        run: |
+          set -e
+          echo "=== Environment info ==="
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          echo "ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}"
+          echo "PATH=$PATH"
+          
+          export ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          cd $ANDROID_HOME/cmdline-tools
+          
+          echo "=== Downloading cmdline-tools ==="
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
+          ls -la cmdtools.zip
+          
+          echo "=== Extracting ==="
+          unzip -q cmdtools.zip
+          if [ -d cmdline-tools ]; then
+            rm -rf latest
+            mv cmdline-tools latest
+          fi
+          ls -la
+          
+          echo "=== Adding to PATH ==="
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+          
+          echo "=== Accepting licenses ==="
+          yes | sdkmanager --licenses || true
+          
+          echo "=== Installing build-tools and platform ==="
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          
+          echo "=== Verifying ==="
+          sdkmanager --list-installed
+          
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "SDK verified OK"
 
       - name: Cache Gradle
         uses: actions/cache@v3
@@ -34,11 +74,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Install Gradle
+        shell: bash
+        run: |
+          set -e
+          echo "=== Downloading Gradle 8.7 ==="
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
+          export PATH="/opt/gradle-8.7/bin:$PATH"
+          gradle --version
+          
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
-
+        shell: bash
+        run: |
+          set -e
+          echo "=== Building ==="
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          
       - name: Upload Debug APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xiaoyan-pet-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            build.log
+          if-no-files-found: ignore
