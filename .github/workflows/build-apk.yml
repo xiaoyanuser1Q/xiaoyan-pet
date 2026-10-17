@@ -15,54 +15,98 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Environment diagnostic
+        shell: bash
+        run: |
+          echo "=== OS ==="
+          cat /etc/os-release | head -5
+          echo ""
+          echo "=== Pre-installed SDK locations ==="
+          ls -la /usr/local/lib/android/sdk/ 2>&1 || echo "not there"
+          echo ""
+          ls -la /opt/android-sdk/ 2>&1 || echo "not there"
+          echo ""
+          echo "=== Env vars ==="
+          env | grep -iE "android|java|sdk|home" | sort
+          echo ""
+          echo "=== Which tools ==="
+          which java gradle adb sdkmanager 2>&1 || true
+          echo ""
+          echo "=== Java ==="
+          java -version 2>&1
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK cmdline-tools
+      - name: Setup Android SDK
         shell: bash
         run: |
           set -e
-          echo "=== Environment info ==="
-          echo "JAVA_HOME=$JAVA_HOME"
-          java -version
-          echo "ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}"
-          echo "PATH=$PATH"
+          echo "=== Pre-check ==="
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-unset}"
+          echo "Current PATH: $PATH"
           
-          export ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          cd $ANDROID_HOME/cmdline-tools
-          
-          echo "=== Downloading cmdline-tools ==="
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-          ls -la cmdtools.zip
-          
-          echo "=== Extracting ==="
-          unzip -q cmdtools.zip
-          if [ -d cmdline-tools ]; then
-            rm -rf latest
-            mv cmdline-tools latest
+          # Try multiple known locations for pre-installed SDK
+          if [ -d "/usr/local/lib/android/sdk" ]; then
+            export ANDROID_HOME="/usr/local/lib/android/sdk"
+          elif [ -d "$HOME/android-sdk" ]; then
+            export ANDROID_HOME="$HOME/android-sdk"
+          elif [ -d "/opt/android-sdk" ]; then
+            export ANDROID_HOME="/opt/android-sdk"
+          else
+            # Fall back to install
+            echo "No pre-installed SDK found, installing..."
+            export ANDROID_HOME="${ANDROID_HOME:-$HOME/android-sdk}"
+            mkdir -p $ANDROID_HOME/cmdline-tools
+            cd $ANDROID_HOME/cmdline-tools
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
+            unzip -q cmdtools.zip
+            if [ -d cmdline-tools ]; then
+              rm -rf latest
+              mv cmdline-tools latest
+            fi
+            export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
           fi
-          ls -la
           
-          echo "=== Adding to PATH ==="
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-          export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+          echo "Using ANDROID_HOME=$ANDROID_HOME"
+          ls -la $ANDROID_HOME
           
-          echo "=== Accepting licenses ==="
-          yes | sdkmanager --licenses || true
-          
-          echo "=== Installing build-tools and platform ==="
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          
-          echo "=== Verifying ==="
-          sdkmanager --list-installed
+          # Check for sdkmanager
+          if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "sdkmanager found at latest"
+            export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
+            export PATH="$PATH:$ANDROID_HOME/platform-tools"
+          elif [ -x "$ANDROID_HOME/tools/bin/sdkmanager" ]; then
+            echo "sdkmanager found at tools/bin (legacy)"
+            export PATH="$PATH:$ANDROID_HOME/tools/bin"
+            export PATH="$PATH:$ANDROID_HOME/platform-tools"
+          elif [ -x "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" ]; then
+            echo "sdkmanager found at cmdline-tools/bin"
+            export PATH="$PATH:$ANDROID_HOME/cmdline-tools/bin"
+            export PATH="$PATH:$ANDROID_HOME/platform-tools"
+          else
+            echo "sdkmanager not found in expected locations"
+            find $ANDROID_HOME -name sdkmanager -type f 2>/dev/null || true
+            echo "Trying apt install..."
+            sudo apt-get install -y android-sdk 2>&1 | tail -10 || true
+            find / -name sdkmanager -type f 2>/dev/null | head -3
+          fi
           
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "SDK verified OK"
+          
+          echo "=== Installed packages ==="
+          sdkmanager --list-installed 2>&1 | head -20 || true
+          
+          echo "=== Installing missing packages ==="
+          yes | sdkmanager --licenses 2>&1 | tail -5 || true
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -10 || true
+          
+          echo "=== Verify ==="
+          sdkmanager --list-installed 2>&1 | tail -10
 
       - name: Cache Gradle
         uses: actions/cache@v3
@@ -78,18 +122,23 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "=== Downloading Gradle 8.7 ==="
-          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /opt
-          echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
-          export PATH="/opt/gradle-8.7/bin:$PATH"
-          gradle --version
+          if command -v gradle >/dev/null 2>&1; then
+            gradle --version
+          else
+            echo "Gradle not found, downloading..."
+            wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
+            unzip -q /tmp/gradle.zip -d /opt
+            echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
+            export PATH="/opt/gradle-8.7/bin:$PATH"
+            gradle --version
+          fi
           
       - name: Build Debug APK
         shell: bash
         run: |
           set -e
           echo "=== Building ==="
+          echo "ANDROID_HOME=$ANDROID_HOME"
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
           
       - name: Upload Debug APK
