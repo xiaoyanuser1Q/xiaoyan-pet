@@ -24,6 +24,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.DrawScope
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,22 +83,69 @@ fun MainScreen() {
 
 @Composable
 fun XiaotaoCompanion() {
-    // Simple pink ball with two small leaves
+    // Pink ball with two leaves on top, two eyes side by side, two rosy cheeks
     Box(
         modifier = Modifier
-            .size(160.dp)
-            .background(color = Color(0xFFFFB7D5), shape = CircleShape),
+            .size(160.dp),
         contentAlignment = Alignment.Center,
     ) {
-        // Eyes
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier
-                .size(12.dp)
-                .background(color = Color.Black, shape = CircleShape))
-            Spacer(modifier = Modifier.height(4.dp))
-            Box(modifier = Modifier
-                .size(12.dp)
-                .background(color = Color.Black, shape = CircleShape))
+        // Two small leaves on top
+        Canvas(modifier = Modifier
+            .size(160.dp)) {
+            // Left leaf
+            val leafW = 24.dp.toPx()
+            val leafH = 32.dp.toPx()
+            val leftLeafCx = size.width / 2 - 20.dp.toPx()
+            val leftLeafCy = 8.dp.toPx()
+            drawCircle(
+                color = Color(0xFF7BC67E),
+                center = Offset(leftLeafCx, leftLeafCy),
+                radius = leafW / 2
+            )
+            // Right leaf
+            val rightLeafCx = size.width / 2 + 20.dp.toPx()
+            drawCircle(
+                color = Color(0xFF7BC67E),
+                center = Offset(rightLeafCx, leftLeafCy),
+                radius = leafW / 2
+            )
+        }
+
+        // Pink ball
+        Box(
+            modifier = Modifier
+                .size(140.dp)
+                .background(color = Color(0xFFFFB7D5), shape = CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Face: two eyes + two cheeks in a Row
+            Column(verticalArrangement = Arrangement.Center) {
+                // Eyes side by side
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Box(modifier = Modifier
+                        .size(14.dp)
+                        .background(color = Color.Black, shape = CircleShape))
+                    Spacer(modifier = Modifier.width(32.dp))
+                    Box(modifier = Modifier
+                        .size(14.dp)
+                        .background(color = Color.Black, shape = CircleShape))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                // Cheeks side by side
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Box(modifier = Modifier
+                        .size(16.dp)
+                        .background(color = Color(0xFFFF6994), shape = CircleShape))
+                    Spacer(modifier = Modifier.width(40.dp))
+                    Box(modifier = Modifier
+                        .size(16.dp)
+                        .background(color = Color(0xFFFF6994), shape = CircleShape))
+                }
+            }
         }
     }
 }
