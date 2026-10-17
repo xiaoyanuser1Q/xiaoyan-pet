@@ -3,6 +3,13 @@ name: Build APK
 on:
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle/**"
+      - "gradle.properties"
+      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
 jobs:
@@ -15,26 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Environment report
-        run: |
-          echo "=== OS ==="
-          cat /etc/os-release | head -3
-          echo "=== Env vars ==="
-          env | grep -iE "android|java|home" | sort
-          echo "=== Common SDK paths ==="
-          ls -la /usr/local/lib/android/ 2>&1 || echo "no /usr/local/lib/android"
-          echo "---"
-          ls -la $ANDROID_HOME 2>&1 || echo "ANDROID_HOME is unset"
-          echo "---"
-          ls -la $ANDROID_HOME/cmdline-tools/ 2>&1 || echo "no cmdline-tools"
-          echo "---"
-          find /usr -name "sdkmanager" 2>/dev/null | head -5
-          find /opt -name "sdkmanager" 2>/dev/null | head -5
-          find $HOME -name "sdkmanager" 2>/dev/null | head -5
-          echo "=== java ==="
-          which java || echo "java not in PATH"
-          java -version 2>&1 || true
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -45,52 +32,30 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "STEP START"
-          echo "ANDROID_HOME before: $ANDROID_HOME"
-          
-          # Locate sdkmanager - print all locations found
-          FOUND=""
-          for loc in             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"             "/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"             "$ANDROID_HOME/cmdline-tools/bin/sdkmanager"             "/usr/local/lib/android/sdk/cmdline-tools/bin/sdkmanager"             "$ANDROID_HOME/tools/bin/sdkmanager"             "/usr/local/lib/android/sdk/tools/bin/sdkmanager"
-          do
-            if [ -x "$loc" ]; then
-              FOUND="$loc"
-              echo "FOUND: $loc"
-              break
-            fi
-          done
-          
-          if [ -z "$FOUND" ]; then
-            echo "No sdkmanager found, installing..."
-            # Install fresh
-            export ANDROID_HOME=/opt/android-sdk
-            mkdir -p $ANDROID_HOME/cmdline-tools
-            cd $ANDROID_HOME/cmdline-tools
-            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-            ls -la cmdtools.zip
-            unzip -q cmdtools.zip
-            ls -la
-            mv cmdline-tools latest 2>/dev/null || echo "mv failed"
-            ls -la
-            FOUND="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-            [ -x "$FOUND" ] && echo "Installed: $FOUND"
+          echo "=== ANDROID_HOME is pre-set: $ANDROID_HOME ==="
+          echo "=== Adding SDK tools to PATH ==="
+          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
+            echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
           fi
+          if [ -d "$ANDROID_HOME/platform-tools" ]; then
+            echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          fi
+          # Accept licenses
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          # Ensure platform and build-tools installed
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          echo "=== SDK ready ==="
           
-          echo "Using: $FOUND"
-          export PATH="$(dirname $FOUND):$PATH"
-          which sdkmanager
-          sdkmanager --version
-          
-          echo "=== Accepting licenses ==="
-          yes | sdkmanager --licenses || echo "license issue"
-          
-          echo "=== Installing packages ==="
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || echo "install issue"
-          
-          echo "=== Done ==="
-          echo "ANDROID_HOME=$(dirname $(dirname $(dirname $FOUND)))" >> $GITHUB_ENV
-          echo "$(dirname $FOUND)" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH || true
-          
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
       - name: Install Gradle
         shell: bash
         run: |
@@ -104,7 +69,6 @@ jobs:
         run: |
           set -e
           export PATH="/opt/gradle-8.7/bin:$PATH"
-          gradle --version
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
           
       - name: Upload Debug APK
