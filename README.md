@@ -2,7 +2,7 @@
 
 Android APP · Kotlin + Jetpack Compose
 
-- 🌐 官网: https://xiaoyan-pet.eu.cc
+- 🌐 官网: https://xiaoyan-pet.xiaoyan-pan.eu.cc
 - 📱 APK 下载: https://github.com/xiaoyanuser1Q/xiaoyan-pet/releases/latest
 - 🎮 类型: 养成 · 剧情 · 单机
 - 👤 开发者: 宵檐 (xiaoyanuser1Q)
