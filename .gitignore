@@ -18,3 +18,7 @@ local.properties
 captures/
 .externalNativeBuild
 .cxx
+
+# Release keystore (loaded from GitHub Secrets at CI time)
+app/keystore/*.keystore
+!app/keystore/.gitkeep
