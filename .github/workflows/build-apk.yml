@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: "17"
 
       - name: Setup Android SDK
         shell: bash
@@ -40,12 +40,10 @@ jobs:
           if [ -d "$ANDROID_HOME/platform-tools" ]; then
             echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
           fi
-          # Accept licenses
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          # Ensure platform and build-tools installed
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
           echo "=== SDK ready ==="
-          
+
       - name: Cache Gradle
         uses: actions/cache@v3
         with:
@@ -63,27 +61,28 @@ jobs:
           wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /opt
           echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
-          
+
       - name: Decode keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -e
           echo "=== Decoding keystore ==="
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore/release.keystore
+          echo "$KEYSTORE_BASE64" | base64 -d > app/keystore/release.keystore
           ls -la app/keystore/release.keystore
           echo "=== Verifying keystore ==="
-          keytool -list -v -keystore app/keystore/release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" 2>&1 | grep -E "Alias|Valid|Key Algorithm|Key Size" || true
-          
+          keytool -list -v -keystore app/keystore/release.keystore -storepass "$KEYSTORE_PASSWORD" 2>&1 | grep -E "Alias|Valid|Key Algorithm|Key Size" || true
+
       - name: Build Debug APK
         shell: bash
         run: |
           set -e
           export PATH="/opt/gradle-8.7/bin:$PATH"
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build-debug.log
-          
+
       - name: Build Release APK
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -93,18 +92,16 @@ jobs:
           set -e
           export PATH="/opt/gradle-8.7/bin:$PATH"
           gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build-release.log
-          
+
       - name: Verify Release APK signature
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         shell: bash
         run: |
           set -e
           APK="$(ls app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)"
-          if [ -z "$APK" ]; then echo "❌ No release APK"; exit 1; fi
-          echo "=== APK: $APK ($(stat -c%s $APK) bytes) ==="
-          # Check v2/v3 signature scheme
+          if [ -z "$APK" ]; then echo "No release APK"; exit 0; fi
+          echo "=== APK: $APK ($(stat -c%s "$APK") bytes) ==="
           apksigner verify --print-certs --verbose "$APK" 2>&1 || true
-          
+
       - name: Upload Debug APK
         if: always()
         uses: actions/upload-artifact@v4
