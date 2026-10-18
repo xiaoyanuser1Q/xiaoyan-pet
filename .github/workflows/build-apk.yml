@@ -65,7 +65,7 @@ jobs:
           echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
           
       - name: Decode keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: ${{ secrets.env.KEYSTORE_BASE64 != '' }}
         shell: bash
         run: |
           set -e
@@ -83,7 +83,7 @@ jobs:
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build-debug.log
           
       - name: Build Release APK
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: ${{ secrets.env.KEYSTORE_BASE64 != '' }}
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.env.KEYSTORE_PASSWORD }}
@@ -95,7 +95,7 @@ jobs:
           gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build-release.log
           
       - name: Verify Release APK signature
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: ${{ secrets.env.KEYSTORE_BASE64 != '' }}
         shell: bash
         run: |
           set -e
