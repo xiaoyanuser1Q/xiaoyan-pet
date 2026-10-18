@@ -70,10 +70,10 @@ jobs:
         run: |
           set -e
           echo "=== Decoding keystore ==="
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore/release.keystore
+          echo "${{ secrets.env.KEYSTORE_BASE64 }}" | base64 -d > app/keystore/release.keystore
           ls -la app/keystore/release.keystore
           echo "=== Verifying keystore ==="
-          keytool -list -v -keystore app/keystore/release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" 2>&1 | grep -E "Alias|Valid|Key Algorithm|Key Size" || true
+          keytool -list -v -keystore app/keystore/release.keystore -storepass "${{ secrets.env.KEYSTORE_PASSWORD }}" 2>&1 | grep -E "Alias|Valid|Key Algorithm|Key Size" || true
           
       - name: Build Debug APK
         shell: bash
@@ -86,9 +86,9 @@ jobs:
         if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         shell: bash
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.env.KEY_PASSWORD }}
         run: |
           set -e
           export PATH="/opt/gradle-8.7/bin:$PATH"
