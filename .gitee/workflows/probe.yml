@@ -1,0 +1,20 @@
+name: probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on:
+      - linux
+    steps:
+      - uses: actions/checkout@main
+      - name: probe-env
+        run: |
+          set -x
+          java -version 2>&1 || echo "NO-JAVA"
+          python3 --version 2>&1 || echo "NO-PY3"
+          which git unzip wget curl 2>&1
+          uname -m
+          free -h | head -2
+          df -h / | tail -1
+          curl -sI --max-time 15 https://dl.google.com/android/repository/repository2-3.xml | head -2 || echo "NO-INTERNET-google"
+          curl -sI --max-time 15 https://services.gradle.org/distributions/gradle-8.7-bin.zip | head -2 || echo "NO-INTERNET-gradle"
