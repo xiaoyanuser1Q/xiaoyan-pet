@@ -1,6 +1,7 @@
 name: probe
 on:
   workflow_dispatch:
+  push:
 jobs:
   probe:
     runs-on:
