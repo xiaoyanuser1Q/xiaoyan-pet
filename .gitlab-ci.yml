@@ -1,0 +1,15 @@
+stages:
+  - probe
+
+probe:
+  stage: probe
+  script:
+    - echo "JAVA:"; java -version 2>&1 || echo "NO-JAVA"
+    - echo "PY:"; python3 --version 2>&1 || echo "NO-PY3"
+    - uname -a; nproc
+    - free -h | head -2
+    - df -h / | tail -1
+    - which git curl wget unzip 2>&1 || true
+    - echo "GOOGLE-ANDROID:"; curl -sI --max-time 20 https://dl.google.com/android/repository/repository2-3.xml | head -2 || echo "NO-GOOGLE"
+    - echo "GRADLE:"; curl -sI --max-time 20 https://services.gradle.org/distributions/gradle-8.7-bin.zip | head -2 || echo "NO-GRADLE"
+    - echo "MIRRORS:"; curl -sI --max-time 20 https://mirrors.aliyun.com/gradle/gradle-8.7-bin.zip | head -2 || echo "NO-ALI-MIRROR"
