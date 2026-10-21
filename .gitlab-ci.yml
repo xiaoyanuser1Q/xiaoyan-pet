@@ -34,6 +34,7 @@ build-release:
   needs: ["probe"]
   script:
     - export JAVA_TOOL_OPTIONS="-Xmx1400m -XX:MaxMetaspaceSize=512m"
+    - mkdir -p app/keystore
     - echo "$KEYSTORE_BASE64" | base64 -d > app/keystore/release.keystore && ls -la app/keystore/release.keystore
     - keytool -list -keystore app/keystore/release.keystore -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -4
     - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleRelease 2>&1 | tail -20
