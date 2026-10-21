@@ -11,6 +11,7 @@ default:
     - apt-get update -qq > /dev/null
     - DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-17-jdk-headless unzip zip curl > /dev/null
     - export ANDROID_HOME="$CI_PROJECT_DIR/android-sdk"
+    - mkdir -p "$ANDROID_HOME/cmdline"
     - curl -sO https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
     - unzip -q commandlinetools-linux-11076708_latest.zip -d "$ANDROID_HOME/cmdline"
     - rm -f commandlinetools-linux-11076708_latest.zip
