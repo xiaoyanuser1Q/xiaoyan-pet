@@ -72,7 +72,8 @@ fun AppRoot() {
             EndingOverlay()
         }
         // 剧情事件弹窗 (挂在根上, 切页也不丢)
-        PetApp.pendingEvent.value?.let { ev ->
+        val ev = PetApp.pendingEvent.value
+        if (ev != null) {
             AlertDialog(
                 onDismissRequest = {},
                 title = {
