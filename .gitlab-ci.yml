@@ -37,6 +37,9 @@ build-release:
     - mkdir -p app/keystore
     - echo "$KEYSTORE_BASE64" | base64 -d > app/keystore/release.keystore && ls -la app/keystore/release.keystore
     - keytool -list -keystore app/keystore/release.keystore -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -4
+    - grep -n "signingConfig" app/build.gradle.kts
+    - echo "KEYSTORE_PASSWORD set: ${KEYSTORE_PASSWORD:+yes}"
+    - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" :app:signingReport 2>&1 | tail -15
     - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleRelease 2>&1 | tail -20
     - cp app/build/outputs/apk/release/app-release-unsigned.apk xiaoyan-pet-v1.0.0-release.apk 2>/dev/null || cp app/build/outputs/apk/release/*.apk xiaoyan-pet-v1.0.0-release.apk
     - ls -la xiaoyan-pet-v1.0.0-release.apk
