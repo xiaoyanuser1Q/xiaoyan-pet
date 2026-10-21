@@ -18,7 +18,7 @@ default:
     - export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
     - (yes | sdkmanager --licenses > /dev/null 2>&1) || true
     - sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" > /dev/null
-    - curl -sO https://services.gradle.org/distributions/gradle-8.7-bin.zip
+    - (curl -sLO https://mirrors.cloud.tencent.com/gradle/gradle-8.7-bin.zip || curl -sLO https://services.gradle.org/distributions/gradle-8.7-bin.zip) && unzip -tq gradle-8.7-bin.zip > /dev/null
     - unzip -q gradle-8.7-bin.zip -d "$CI_PROJECT_DIR/tools"
     - export PATH="$PATH:$CI_PROJECT_DIR/tools/gradle-8.7/bin"
 
