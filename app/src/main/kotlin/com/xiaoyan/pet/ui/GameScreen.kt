@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,7 +46,6 @@ fun GameScreen() {
     }
 
     var talkOpen by remember { mutableStateOf(false) }
-    var tapCount by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = Modifier
@@ -80,13 +78,12 @@ fun GameScreen() {
                 .fillMaxWidth()
                 .height(210.dp)
                 .clickable {
-                    tapCount++
                     PetApp.doAction { s -> GameLogic.pet(s) }
                 },
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                PetCanvas(stage = p.stage, triggerTap = tapCount)
+                PetCanvas(stage = p.stage)
                 if (p.isUnwell()) {
                     Spacer(Modifier.height(6.dp))
                     Text("小桃不太舒服，快去照顾它吧…", fontSize = 13.sp, color = Color(0xFFFFD7D7))
