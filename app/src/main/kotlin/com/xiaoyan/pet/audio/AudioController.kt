@@ -50,8 +50,8 @@ class AudioController(context: Context) {
         }
     }
 
-    /** BGM 开关状态变化 */
-    fun setBgmEnabled(on: Boolean) {
+    /** BGM 开关状态变化 (带副作用: 开=立即起播, 关=停播) */
+    fun applyBgm(on: Boolean) {
         bgmEnabled = on
         if (on) ensureBgm() else stopBgm()
     }
@@ -90,10 +90,6 @@ class AudioController(context: Context) {
             }
         }
         bgm = null
-    }
-
-    fun setSfxEnabled(on: Boolean) {
-        sfxEnabled = on
     }
 
     /** 应用退出时释放 */

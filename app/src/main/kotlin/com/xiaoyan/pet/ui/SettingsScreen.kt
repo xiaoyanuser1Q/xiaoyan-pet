@@ -64,7 +64,7 @@ fun SettingsScreen() {
                     checked = sfx,
                     onCheckedChange = { on ->
                         PetApp.repo.setSfxOn(on)
-                        PetApp.audio.setSfxEnabled(on)
+                        PetApp.audio.sfxEnabled = on
                         PetApp.bump()
                     },
                 )
@@ -74,7 +74,7 @@ fun SettingsScreen() {
                     checked = bgm,
                     onCheckedChange = { on ->
                         PetApp.repo.setBgmOn(on)
-                        PetApp.audio.setBgmEnabled(on)
+                        PetApp.audio.applyBgm(on)
                         PetApp.bump()
                     },
                 )
