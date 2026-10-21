@@ -116,7 +116,8 @@ object PetApp {
     }
 
     fun bump() {
-        tick += 1
+        // 不用 tick += 1 (MutableIntState 的 plusAssign 在部分 compose runtime 版本不可用), 直接走 intValue
+        tick.intValue = tick.intValue + 1
     }
 
     /** 当前版本号 (与 build.gradle versionCode 保持一致, 检查更新用) */

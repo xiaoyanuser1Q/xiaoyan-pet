@@ -2,15 +2,20 @@ package com.xiaoyan.pet.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,14 +48,7 @@ fun AppRoot() {
     val screen = PetApp.screen
 
     Scaffold(
-        bottomBar = {
-            NavigationBar {
-                NavItem(selected = screen == Screen.Game, icon = "🏠", label = "小桃", onClick = { PetApp.screen = Screen.Game })
-                NavItem(selected = screen == Screen.Account, icon = "👤", label = "账号", onClick = { PetApp.screen = Screen.Account })
-                NavItem(selected = screen == Screen.Settings, icon = "⚙️", label = "设置", onClick = { PetApp.screen = Screen.Settings })
-                NavItem(selected = screen == Screen.About, icon = "ℹ️", label = "关于", onClick = { PetApp.screen = Screen.About })
-            }
-        },
+        bottomBar = { BottomBar(screen) },
     ) { padding ->
         Box(Modifier.fillMaxSize()) {
             BackgroundImage(PetApp.backgroundRes(pet))
@@ -84,20 +82,40 @@ fun AppRoot() {
     }
 }
 
+/**
+ * 自定义底部栏: 不依赖 material3 的 NavigationBar/NavigationBarItem
+ * (CI 解析到的 material3 版本可能不含该组件, 用基础布局手搓, 任何版本都能编译)
+ */
 @Composable
-private fun NavItem(selected: Boolean, icon: String, label: String, onClick: () -> Unit) {
-    NavigationBarItem(
-        selected = selected,
-        onClick = onClick,
-        icon = { Text(icon, fontSize = 20.sp) },
-        label = { Text(label, fontSize = 11.sp) },
-        colors = NavigationBarItemDefaults.colors(
-            containerColor = Color(0xFF2E1B2A),
-            activeIndicatorColor = Color(0xFFFF8FB8).copy(alpha = 0.30f),
-            selectedTextColor = Color(0xFFFFD7E5),
-            unselectedTextColor = Color.White.copy(alpha = 0.62f),
-        ),
-    )
+private fun BottomBar(screen: Screen) {
+    Surface(color = Color(0xFF2E1B2A), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.height(62.dp)) {
+            BarItem("🏠", "小桃", screen == Screen.Game, { PetApp.screen = Screen.Game }, Modifier.weight(1f))
+            BarItem("👤", "账号", screen == Screen.Account, { PetApp.screen = Screen.Account }, Modifier.weight(1f))
+            BarItem("⚙️", "设置", screen == Screen.Settings, { PetApp.screen = Screen.Settings }, Modifier.weight(1f))
+            BarItem("ℹ️", "关于", screen == Screen.About, { PetApp.screen = Screen.About }, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun BarItem(icon: String, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(if (selected) Color(0xFFFF8FB8).copy(alpha = 0.18f) else Color.Transparent)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(icon, fontSize = 19.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label,
+            fontSize = 11.sp,
+            color = if (selected) Color(0xFFFFD7E5) else Color.White.copy(alpha = 0.62f),
+        )
+    }
 }
 
 /** 全屏背景图 + 轻微暗化, 保证文字可读 */
