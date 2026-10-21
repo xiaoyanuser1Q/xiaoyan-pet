@@ -10,7 +10,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,12 +44,7 @@ fun AppRoot() {
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                colors = NavigationBarDefaults.colors(
-                    containerColor = Color(0xFF2E1B2A),
-                    activeIndicatorColor = Color(0xFFFF8FB8).copy(alpha = 0.30f),
-                ),
-            ) {
+            NavigationBar {
                 NavItem(selected = screen == Screen.Game, icon = "🏠", label = "小桃", onClick = { PetApp.screen = Screen.Game })
                 NavItem(selected = screen == Screen.Account, icon = "👤", label = "账号", onClick = { PetApp.screen = Screen.Account })
                 NavItem(selected = screen == Screen.Settings, icon = "⚙️", label = "设置", onClick = { PetApp.screen = Screen.Settings })
@@ -98,6 +92,8 @@ private fun NavItem(selected: Boolean, icon: String, label: String, onClick: () 
         icon = { Text(icon, fontSize = 20.sp) },
         label = { Text(label, fontSize = 11.sp) },
         colors = NavigationBarItemDefaults.colors(
+            containerColor = Color(0xFF2E1B2A),
+            activeIndicatorColor = Color(0xFFFF8FB8).copy(alpha = 0.30f),
             selectedTextColor = Color(0xFFFFD7E5),
             unselectedTextColor = Color.White.copy(alpha = 0.62f),
         ),

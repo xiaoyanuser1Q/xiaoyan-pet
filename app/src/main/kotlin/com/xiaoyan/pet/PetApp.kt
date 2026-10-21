@@ -116,7 +116,7 @@ object PetApp {
     }
 
     fun bump() {
-        tick++
+        tick += 1
     }
 
     /** 当前版本号 (与 build.gradle versionCode 保持一致, 检查更新用) */

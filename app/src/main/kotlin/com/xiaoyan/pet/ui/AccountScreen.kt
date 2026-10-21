@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,7 +96,7 @@ private fun LoginForm() {
     var status by remember { mutableStateOf<String?>(null) }
     var needConfirm by remember { mutableStateOf(false) }
 
-    val cscope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
+    val cscope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -145,7 +146,7 @@ private fun LoginForm() {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton(
                 text = "登录",
-                enabled = email.isNotBlank() && password.length() >= 6 && !busy,
+                enabled = email.isNotBlank() && password.length >= 6 && !busy,
                 onClick = {
                     busy = true
                     status = null
@@ -171,7 +172,7 @@ private fun LoginForm() {
             )
             PrimaryButton(
                 text = "注册",
-                enabled = email.isNotBlank() && password.length() >= 6 && !busy,
+                enabled = email.isNotBlank() && password.length >= 6 && !busy,
                 onClick = {
                     busy = true
                     status = null
