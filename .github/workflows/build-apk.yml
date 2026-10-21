@@ -1,8 +1,6 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -19,10 +17,22 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: "17"
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        shell: bash
+        run: |
+          set -e
+          echo "=== ANDROID_HOME is pre-set: $ANDROID_HOME ==="
+          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
+            echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          fi
+          if [ -d "$ANDROID_HOME/platform-tools" ]; then
+            echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          fi
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          echo "=== SDK ready ==="
 
       - name: Cache Gradle
         uses: actions/cache@v3
@@ -34,11 +44,70 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Install Gradle
+        shell: bash
+        run: |
+          set -e
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
+
+      - name: Decode keystore
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          echo "=== Decoding keystore ==="
+          echo "$KEYSTORE_BASE64" | base64 -d > app/keystore/release.keystore
+          ls -la app/keystore/release.keystore
+          echo "=== Verifying keystore ==="
+          keytool -list -v -keystore app/keystore/release.keystore -storepass "$KEYSTORE_PASSWORD" 2>&1 | grep -E "Alias|Valid|Key Algorithm|Key Size" || true
+
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        shell: bash
+        run: |
+          set -e
+          export PATH="/opt/gradle-8.7/bin:$PATH"
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build-debug.log
+
+      - name: Build Release APK
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -e
+          export PATH="/opt/gradle-8.7/bin:$PATH"
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build-release.log
+
+      - name: Verify Release APK signature
+        shell: bash
+        run: |
+          set -e
+          APK="$(ls app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)"
+          if [ -z "$APK" ]; then echo "No release APK"; exit 0; fi
+          echo "=== APK: $APK ($(stat -c%s "$APK") bytes) ==="
+          apksigner verify --print-certs --verbose "$APK" 2>&1 || true
 
       - name: Upload Debug APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xiaoyan-pet-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            build-debug.log
+          if-no-files-found: ignore
+
+      - name: Upload Release APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaoyan-pet-release
+          path: |
+            app/build/outputs/apk/release/*.apk
+            build-release.log
+          if-no-files-found: ignore
