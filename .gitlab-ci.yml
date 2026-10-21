@@ -1,0 +1,52 @@
+stages:
+  - probe
+  - build
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-home"
+
+default:
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update -qq > /dev/null
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-17-jdk-headless unzip zip curl > /dev/null
+    - export ANDROID_HOME="$CI_PROJECT_DIR/android-sdk"
+    - curl -sO https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+    - mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
+    - unzip -q commandlinetools-linux-11076708_latest.zip -d /tmp/ct && mv /tmp/ct/cmdline-tools/* "$ANDROID_HOME/cmdline-tools/latest/"
+    - rm -f commandlinetools-linux-11076708_latest.zip
+    - export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+    - (yes | sdkmanager --licenses > /dev/null 2>&1) || true
+    - sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" > /dev/null
+    - (curl -sLO https://mirrors.cloud.tencent.com/gradle/gradle-8.7-bin.zip || curl -sLO https://services.gradle.org/distributions/gradle-8.7-bin.zip) && unzip -tq gradle-8.7-bin.zip > /dev/null
+    - unzip -q gradle-8.7-bin.zip -d "$CI_PROJECT_DIR/tools"
+    - export PATH="$PATH:$CI_PROJECT_DIR/tools/gradle-8.7/bin"
+
+probe:
+  stage: probe
+  script:
+    - java -version 2>&1 | head -1
+    - sdkmanager --version
+    - gradle --version 2>&1 | grep -E "Gradle|JVM" || true
+
+build-release:
+  stage: build
+  needs: ["probe"]
+  script:
+    - export JAVA_TOOL_OPTIONS="-Xmx1400m -XX:MaxMetaspaceSize=512m"
+    - mkdir -p app/keystore
+    - echo "$KEYSTORE_BASE64" | base64 -d > app/keystore/release.keystore && ls -la app/keystore/release.keystore
+    - keytool -list -keystore app/keystore/release.keystore -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -4
+    - grep -n "signingConfig" app/build.gradle.kts
+    - (test -n "$KEYSTORE_PASSWORD" && echo "KEYSTORE_PASSWORD set") || echo "KEYSTORE_PASSWORD missing"
+    - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" :app:signingReport 2>&1 | tail -15
+    - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleRelease 2>&1 | tail -20
+    - ls -la app/build/outputs/apk/release/
+    - if [ -f app/build/outputs/apk/release/app-release.apk ]; then cp app/build/outputs/apk/release/app-release.apk xiaoyan-pet-v1.0.0-release.apk; else cp app/build/outputs/apk/release/*.apk xiaoyan-pet-v1.0.0-release.apk; fi
+    - ls -la xiaoyan-pet-v1.0.0-release.apk
+    - keytool -printcert -jarfile xiaoyan-pet-v1.0.0-release.apk 2>&1 | head -6 || echo "(unsigned)"
+  artifacts:
+    when: on_success
+    paths:
+      - xiaoyan-pet-v1.0.0-release.apk
+    expire_in: 7 days
