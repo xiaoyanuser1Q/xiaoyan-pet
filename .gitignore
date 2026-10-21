@@ -18,3 +18,7 @@ local.properties
 captures/
 .externalNativeBuild
 .cxx
+
+# keystore (CI 变量注入)
+app/keystore/
+keystore/

@@ -1,15 +1,46 @@
 stages:
   - probe
+  - build
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-home"
+
+default:
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update -qq > /dev/null
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-17-jdk-headless unzip zip curl > /dev/null
+    - export ANDROID_HOME="$CI_PROJECT_DIR/android-sdk"
+    - curl -sO https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+    - unzip -q commandlinetools-linux-11076708_latest.zip -d "$ANDROID_HOME/cmdline"
+    - rm -f commandlinetools-linux-11076708_latest.zip
+    - export PATH="$PATH:$ANDROID_HOME/cmdline/tools/bin:$ANDROID_HOME/platform-tools"
+    - (yes | sdkmanager --licenses > /dev/null 2>&1) || true
+    - sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" > /dev/null
+    - curl -sO https://services.gradle.org/distributions/gradle-8.7-bin.zip
+    - unzip -q gradle-8.7-bin.zip -d "$CI_PROJECT_DIR/tools"
+    - export PATH="$PATH:$CI_PROJECT_DIR/tools/gradle-8.7/bin"
 
 probe:
   stage: probe
   script:
-    - echo "JAVA:"; java -version 2>&1 || echo "NO-JAVA"
-    - echo "PY:"; python3 --version 2>&1 || echo "NO-PY3"
-    - uname -a; nproc
-    - free -h | head -2
-    - df -h / | tail -1
-    - which git curl wget unzip 2>&1 || true
-    - echo "GOOGLE-ANDROID:"; curl -sI --max-time 20 https://dl.google.com/android/repository/repository2-3.xml | head -2 || echo "NO-GOOGLE"
-    - echo "GRADLE:"; curl -sI --max-time 20 https://services.gradle.org/distributions/gradle-8.7-bin.zip | head -2 || echo "NO-GRADLE"
-    - echo "MIRRORS:"; curl -sI --max-time 20 https://mirrors.aliyun.com/gradle/gradle-8.7-bin.zip | head -2 || echo "NO-ALI-MIRROR"
+    - java -version 2>&1 | head -1
+    - sdkmanager --version
+    - gradle --version 2>&1 | grep -E "Gradle|JVM" || true
+
+build-release:
+  stage: build
+  needs: ["probe"]
+  script:
+    - export JAVA_TOOL_OPTIONS="-Xmx1400m -XX:MaxMetaspaceSize=512m"
+    - echo "$KEYSTORE_BASE64" | base64 -d > app/keystore/release.keystore && ls -la app/keystore/release.keystore
+    - keytool -list -keystore app/keystore/release.keystore -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -4
+    - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleRelease 2>&1 | tail -20
+    - cp app/build/outputs/apk/release/app-release-unsigned.apk xiaoyan-pet-v1.0.0-release.apk 2>/dev/null || cp app/build/outputs/apk/release/*.apk xiaoyan-pet-v1.0.0-release.apk
+    - ls -la xiaoyan-pet-v1.0.0-release.apk
+    - keytool -printcert -jarfile xiaoyan-pet-v1.0.0-release.apk 2>&1 | head -6 || echo "(unsigned)"
+  artifacts:
+    when: on_success
+    paths:
+      - xiaoyan-pet-v1.0.0-release.apk
+    expire_in: 7 days
