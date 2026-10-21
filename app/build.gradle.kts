@@ -18,7 +18,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("app/keystore/release.keystore")
+            storeFile = file("keystore/release.keystore")
             storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
             keyAlias = System.getenv("KEY_ALIAS") ?: "xiaoyan"
             keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: ""
