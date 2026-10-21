@@ -11,11 +11,11 @@ default:
     - apt-get update -qq > /dev/null
     - DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-17-jdk-headless unzip zip curl > /dev/null
     - export ANDROID_HOME="$CI_PROJECT_DIR/android-sdk"
-    - mkdir -p "$ANDROID_HOME/cmdline"
     - curl -sO https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-    - unzip -q commandlinetools-linux-11076708_latest.zip -d "$ANDROID_HOME/cmdline"
+    - mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
+    - unzip -q commandlinetools-linux-11076708_latest.zip -d /tmp/ct && mv /tmp/ct/cmdline-tools/* "$ANDROID_HOME/cmdline-tools/latest/"
     - rm -f commandlinetools-linux-11076708_latest.zip
-    - export PATH="$PATH:$ANDROID_HOME/cmdline/cmdline-tools/bin:$ANDROID_HOME/platform-tools"
+    - export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
     - (yes | sdkmanager --licenses > /dev/null 2>&1) || true
     - sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" > /dev/null
     - curl -sO https://services.gradle.org/distributions/gradle-8.7-bin.zip
