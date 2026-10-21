@@ -5,7 +5,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.Base64
 
 /** 账号注册/登录结果 */
 sealed class AuthResult {
@@ -176,12 +175,4 @@ class SupabaseApi(
         return code to text
     }
 
-    /** 从 JWT 解析 uid (sub), 供没有 user 对象时的兜底 */
-    fun uidFromJwt(token: String): String = runCatching {
-        val payload = token.split(".").getOrNull(1) ?: return@runCatching ""
-        val pad = payload + "=" repeat ((4 - payload.length % 4) % 4)
-        String(Base64.getUrlDecoder().decode(pad), Charsets.UTF_8).let {
-            JSONObject(it).optString("sub", "")
-        }
-    }.getOrDefault("")
 }

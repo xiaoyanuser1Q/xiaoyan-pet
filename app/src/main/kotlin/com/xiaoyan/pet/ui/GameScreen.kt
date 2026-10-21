@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -41,7 +42,7 @@ fun GameScreen() {
     val p = pet
 
     if (p.ended.isNotEmpty()) {
-        EndedScene(p)
+        if (p.endingSeen) EndedScene(p) else EndingWait()
         return
     }
 
@@ -204,6 +205,23 @@ private fun TalkDialog(onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
+}
+
+/** 结局尚未读完时的占位画面 (EndingOverlay 会覆盖在上面) */
+@Composable
+private fun EndingWait() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("✦ ✧ ✦", fontSize = 36.sp, color = Color(0xFFFFF3C4))
+            Spacer(Modifier.height(10.dp))
+            Text("……", fontSize = 16.sp, color = Color.White.copy(alpha = 0.7f))
+        }
+    }
 }
 
 /** 结局后的主屏: 星光 + 文案 + 重新开始 */

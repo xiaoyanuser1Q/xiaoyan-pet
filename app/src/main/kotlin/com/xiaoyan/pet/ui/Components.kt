@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,15 +40,13 @@ fun StatBar(label: String, value: Int, color: Color, modifier: Modifier = Modifi
             modifier = Modifier
                 .weight(1f)
                 .height(10.dp)
-                .clip(RoundedCornerShape(5.dp))
-                .background(Color.White.copy(alpha = 0.22f)),
+                .background(Color.White.copy(alpha = 0.22f), RoundedCornerShape(5.dp)),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth((value / 100f).coerceIn(0f, 1f))
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(color),
+                    .background(color, RoundedCornerShape(5.dp)),
             )
         }
         Spacer(Modifier.width(8.dp))
@@ -110,9 +108,9 @@ fun PrimaryButton(
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
             .background(
-                if (enabled) Color(0xFFFF8FB8) else Color.White.copy(alpha = 0.25f)
+                if (enabled) Color(0xFFFF8FB8) else Color.White.copy(alpha = 0.25f),
+                RoundedCornerShape(14.dp),
             )
             .padding(vertical = 10.dp),
     ) {
@@ -135,8 +133,7 @@ fun GhostButton(
     TextButton(
         onClick = onClick,
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.16f))
+            .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(14.dp))
             .padding(vertical = 8.dp, horizontal = 16.dp),
     ) {
         Text(text, fontSize = 14.sp, color = Color.White)
