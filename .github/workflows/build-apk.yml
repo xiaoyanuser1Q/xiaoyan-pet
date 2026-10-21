@@ -1,15 +1,6 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "app/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle/**"
-      - "gradle.properties"
-      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
 jobs:
@@ -33,7 +24,6 @@ jobs:
         run: |
           set -e
           echo "=== ANDROID_HOME is pre-set: $ANDROID_HOME ==="
-          echo "=== Adding SDK tools to PATH ==="
           if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
             echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
           fi
