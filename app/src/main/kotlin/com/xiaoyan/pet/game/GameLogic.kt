@@ -101,7 +101,7 @@ object GameLogic {
     fun rollRandomEvent(s: PetState): StoryEvent? {
         if (s.ended.isNotEmpty()) return null
         val fired = s.eventFlags.toSet()
-        val pool = (0 until Story.RANDOM_EVENTS.size).filter { it !in fired }
+        val pool = (0 until Story.RANDOM_EVENTS.size).filter { it.toString() !in fired }
         if (pool.isEmpty()) return null
         if (Random.nextInt(100) >= 15) return null
         val pick = pool[Random.nextInt(pool.size)]

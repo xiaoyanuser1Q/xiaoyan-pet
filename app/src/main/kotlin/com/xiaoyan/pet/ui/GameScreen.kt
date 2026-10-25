@@ -280,7 +280,7 @@ private fun StaggeredOption(index: Int, content: @Composable () -> Unit) {
     }
     AnimatedVisibility(
         visible = placed,
-        enter = slideIn(animationSpec = tween(200)) { IntOffset(0, it.height * 0.2f) } + fadeIn(tween(200)),
+        enter = slideIn(animationSpec = tween(200)) { IntOffset(0, (it.height * 0.2f).toInt()) } + fadeIn(tween(200)),
         exit = fadeOut(tween(150)),
     ) {
         content()

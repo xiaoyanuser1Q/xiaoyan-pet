@@ -169,11 +169,13 @@ class SupabaseApi(
         "User-Agent" to "xiaoyan-pet/1.2",
     )
 
-    private fun authHeaders(): Map<String, String> = gwHeaders().plus(
-        "apikey" to anonKey,
-        "Content-Type" to "application/json",
-        "Authorization" to "Bearer $anonKey",
-    )
+    private fun authHeaders(): Map<String, String> {
+        val m = HashMap(gwHeaders())
+        m["apikey"] = anonKey
+        m["Content-Type"] = "application/json"
+        m["Authorization"] = "Bearer $anonKey"
+        return m
+    }
 
     private fun saveHeaders(token: String, prefer: String?): Map<String, String> {
         val m = HashMap<String, String>()

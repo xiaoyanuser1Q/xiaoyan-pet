@@ -2,29 +2,32 @@ package com.xiaoyan.pet.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateFloatAsState
-import androidx.compose.animation.core.infiniteTransitionLerp
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.fadeIn
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.slideIn
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberInfiniteTransition
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphicsLayer
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.toPx
 import com.xiaoyan.pet.R
 import kotlinx.coroutines.delay
-import kotlin.math.sin
 import kotlin.random.Random
 
 /** 立绘表情 (6 张静态图 + Compose 程序化动画) */
@@ -45,22 +48,19 @@ fun portraitResFor(mood: PortraitMood): Int = when (mood) {
 
 /**
  * 立绘精灵 (v1.2.0 动画定案):
- * - 呼吸: 整图 scaleY 1.0→1.012→1.0 / 3.2s + translateY ±2px
- * - 微摆: 整图以底边为轴 ±1.5° / 4.1s, 与呼吸相位错开; 低配模式关闭
+ * - 呼吸: 整图 scaleY 1.0→1.012 / 3.2s (1.6s 上 1.6s 下) + translateY 0→-2px
+ * - 微摆: 整图以底边为轴 ±1.5° / 4.1s; 低配模式关闭
  * - 眨眼: 整图 scaleY 0.97 / 120ms 回弹, 每 3-6s 随机
  * - 情绪切换: 交叉淡化 + 上滑 200ms (Crossfade + 入场 slideIn)
- * 内容: ContentScale.Fit, 外层由调用方对齐 BottomCenter (审计② 零裁切)
+ * 内容: ContentScale.Fit + 底边中点对齐 (审计② 零裁切)
  */
 @Composable
 fun PortraitSprite(mood: PortraitMood, lowSpec: Boolean) {
     val res = portraitResFor(mood)
-    Crossfade(
-        targetState = res,
-        animationSpec = tween(200),
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter,
-    ) { id ->
-        AnimatedSprite(id, lowSpec)
+    Crossfade(targetState = res, animationSpec = tween(200)) { id ->
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            AnimatedSprite(id, lowSpec)
+        }
     }
 }
 
@@ -70,11 +70,20 @@ private fun AnimatedSprite(resId: Int, lowSpec: Boolean) {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
 
-    // 呼吸 (3.2s 三角波) + 微摆 (4.1s 线性相位, 内部转正弦, 与呼吸错开)
+    // 呼吸 (3.2s 全周期) + 微摆 (4.1s 全周期), 两条独立无限动画
     val infinite = rememberInfiniteTransition()
-    val breathe by infinite.animate(infiniteTransitionLerp(3200, "pet_breath")) { f, _ -> f }
-    val swayPh by infinite.animate(infiniteTransitionLerp(4100, "pet_sway")) { f, _ -> f }
-    val tri = if (breathe < 0.5f) breathe * 2f else (1f - breathe) * 2f
+    val breathA = infinite.animate(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Reverse),
+    )
+    val swayA = infinite.animate(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2050), RepeatMode.Reverse),
+    )
+    val breath01 = breathA.value            // 0..1
+    val swayWave = swayA.value * 2f - 1f    // -1..1
 
     // 眨眼: 3-6s 随机, scaleY 0.97 / 120ms 回弹
     var blinkOn by remember { mutableStateOf(false) }
@@ -95,7 +104,7 @@ private fun AnimatedSprite(resId: Int, lowSpec: Boolean) {
 
     AnimatedVisibility(
         visible = shown,
-        enter = slideIn(animationSpec = tween(200)) { IntOffset(0, (it.height * 0.05f).toInt()) },
+        enter = slideIn(animationSpec = tween(200)) { IntOffset(0, (it.height * 0.05f).toInt()) } + fadeIn(tween(200)),
     ) {
         Image(
             painter = painterResource(resId),
@@ -105,9 +114,9 @@ private fun AnimatedSprite(resId: Int, lowSpec: Boolean) {
                 .graphicsLayer {
                     // 以底边为轴 (呼吸 scaleY 与微摆 rotationZ 共用)
                     transformOrigin = TransformOrigin(0.5f, 1f)
-                    scaleY = (1f + 0.012f * tri) * blinkScale
-                    rotationZ = if (lowSpec) 0f else sin(swayPh * 6.2831853f - 0.7f) * 1.5f
-                    translationY = (-2f * tri).toPx()
+                    scaleY = (1f + 0.012f * breath01) * blinkScale
+                    rotationZ = if (lowSpec) 0f else swayWave * 1.5f
+                    translationY = (-2f * breath01).toPx()
                 },
             contentScale = ContentScale.Fit,
             alignment = Alignment.BottomCenter,

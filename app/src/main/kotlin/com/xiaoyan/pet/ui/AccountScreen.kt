@@ -44,9 +44,9 @@ fun AccountScreen() {
     Row(Modifier.fillMaxSize()) {
         BrandColumn(Modifier.weight(0.45f))
         if (email != null) {
-            SessionCard(email)
+            SessionCard(email, Modifier.weight(0.55f))
         } else {
-            LoginForm()
+            LoginForm(Modifier.weight(0.55f))
         }
     }
 }
@@ -73,12 +73,12 @@ private fun BrandColumn(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SessionCard(email: String) {
+private fun SessionCard(email: String, modifier: Modifier = Modifier) {
     val uid = PetApp.repo.cloudUid().orEmpty()
     val lastSync = PetApp.repo.lastCloudSyncMs()
     Column(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
+            .fillMaxHeight()
             .imePadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -150,7 +150,7 @@ private fun TestConnectionRow() {
 }
 
 @Composable
-private fun LoginForm() {
+private fun LoginForm(modifier: Modifier = Modifier) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -159,10 +159,9 @@ private fun LoginForm() {
 
     val cscope = rememberCoroutineScope()
 
-    // 右栏表单: 键盘只顶这一栏 (imePadding 只加在右栏)
+    // 右栏表单: 键盘只顶这一栏 (imePadding 只加在右栏); weight 由调用方在 Row 内传
     Column(
-        modifier = Modifier
-            .weight(0.55f)
+        modifier = modifier
             .fillMaxHeight()
             .imePadding()
             .padding(24.dp),
