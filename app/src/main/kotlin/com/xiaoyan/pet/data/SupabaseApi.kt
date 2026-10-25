@@ -22,11 +22,24 @@ sealed class AuthResult {
 /**
  * Supabase 纯 HTTP 客户端 (Auth + PostgREST)。
  * 不引入 supabase-kt SDK: 少一个依赖、零 R8 风险, 行为完全可控。
+ *
+ * v1.2.0 (T1): baseUrl 走 CF Worker 代理 pet-gw.xiaoyan-pan.eu.cc
+ * (国内直连 supabase.co 不稳), 所有请求注入 X-Xiaoyan-Gw 共享密钥头
+ * (客户端标识级, 编译期常量; 白名单/限速/GATE 在 Worker 侧)。
  */
 class SupabaseApi(
-    private val baseUrl: String = "https://wigjusjcgjajpnxfkxgy.supabase.co",
-    private val anonKey: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpZ2p1c2pjZ2phanBueGZreGd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MTYzMDUsImV4cCI6MjEwMzM5MjMwNX0.8qPdeagIPkj1AKIYi_lDmEQaIspEuVL1RsEmV0gUK3I"
+    private val baseUrl: String = "https://pet-gw.xiaoyan-pan.eu.cc",
+    private val anonKey: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpZ2p1c2pjZ2phanBueGZreGd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MTYzMDUsImV4cCI6MjEwMzM5MjMwNX0.8qPdeagIPkj1AKIYi_lDmEQaIspEuVL1RsEmV0gUK3I",
 ) {
+
+    /** 共享密钥 (32B 随机, 与 CF Worker Secret WORKER_SHARED_SECRET 一致; 仅客户端标识级) */
+    private val gwSecret = "e3b867e10eabcc72cce03713d3c515679e5e72e69f927337304a548d28ef4d3b"
+
+    companion object {
+        /** v1.2.0 检查更新源: eu.cc 主分发 (pages.dev 降为备用, 见 README) */
+        const val VERSION_JSON_URL = "https://xiaoyan-pet.xiaoyan-pan.eu.cc/version.json"
+    }
+
 
     suspend fun signUp(email: String, password: String): AuthResult = withContext(Dispatchers.IO) {
         val body = JSONObject().put("email", email).put("password", password)
@@ -45,7 +58,7 @@ class SupabaseApi(
                 if (token.isNotEmpty()) AuthResult.Ok(email, token, uid, false)
                 else AuthResult.Ok(email, "", uid, true)
             }
-            400 -> AuthResult.Err("注册失败：" + errDesc(text, "邮箱可能已注册"))
+            400 -> AuthResult.Err("注册失败 (HTTP $code)：" + errDesc(text, "邮箱可能已注册"))
             else -> AuthResult.Err("注册失败 (HTTP $code)，请稍后再试")
         }
     }
@@ -65,12 +78,35 @@ class SupabaseApi(
                 val token = j.optString("access_token", "")
                 val uid = j.optJSONObject("user")?.optString("id", "") ?: ""
                 if (token.isNotEmpty()) AuthResult.Ok(email, token, uid, false)
-                else AuthResult.Err("登录失败：服务未返回会话，请重试")
+                else AuthResult.Err("登录失败 (HTTP $code)：服务未返回会话，请重试")
             }
-            400, 401, 422 -> AuthResult.Err("邮箱或密码不正确")
+            400, 401, 422 -> AuthResult.Err("邮箱或密码不正确 (HTTP $code)")
             else -> AuthResult.Err("登录失败 (HTTP $code)，请稍后再试")
         }
     }
+
+    /** v1.2.0 账号页「🔌 测试连接」: 探活代理 → Supabase, 返回 HTTP code + 原文 */
+    suspend fun testConnection(): Triple<Int, String, Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val (code, text) = request("GET", "/auth/v1/settings", authHeaders(), null)
+            Triple(code, if (code in 200..299) "连接正常" else text.take(120), code in 200..299)
+        } catch (e: Exception) {
+            Triple(-1, "网络异常：" + e.message, false)
+        }
+    }
+
+    /** v1.2.0 登录时写 event_logs (表已存在, RLS *_self; best-effort 不阻塞) */
+    suspend fun logEvent(uid: String, token: String, type: String, payload: JSONObject) =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject()
+                .put("player_id", uid)
+                .put("type", type)
+                .put("payload", payload)
+            runCatching {
+                val (code, _) = request("POST", "/rest/v1/event_logs", saveHeaders(token, null), body.toString())
+                code in 200..299
+            }.getOrDefault(false)
+        }
 
     /** 云存档: 上传 (upsert) */
     suspend fun upsertSave(uid: String, token: String, dataJson: String): Boolean = withContext(Dispatchers.IO) {
@@ -128,14 +164,20 @@ class SupabaseApi(
 
     // ---------- 内部工具 ----------
 
-    private fun authHeaders(): Map<String, String> = mapOf(
+    private fun gwHeaders(): Map<String, String> = mapOf(
+        "X-Xiaoyan-Gw" to gwSecret,
+        "User-Agent" to "xiaoyan-pet/1.2",
+    )
+
+    private fun authHeaders(): Map<String, String> = gwHeaders().plus(
         "apikey" to anonKey,
         "Content-Type" to "application/json",
-        "Authorization" to "Bearer $anonKey"
+        "Authorization" to "Bearer $anonKey",
     )
 
     private fun saveHeaders(token: String, prefer: String?): Map<String, String> {
         val m = HashMap<String, String>()
+        m.putAll(gwHeaders())
         m["apikey"] = anonKey
         m["Authorization"] = "Bearer $token"
         if (prefer != null) m["Prefer"] = prefer

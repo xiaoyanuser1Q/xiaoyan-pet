@@ -27,6 +27,10 @@ class SaveRepository(context: Context) {
     fun bgmOn(): Boolean = prefs.getBoolean(KEY_BGM, true)
     fun setBgmOn(v: Boolean) = prefs.edit().putBoolean(KEY_BGM, v).apply()
 
+    // ---------- 显示 (v1.2.0 低配模式) ----------
+    fun lowSpecOn(): Boolean = prefs.getBoolean(KEY_LOWSPEC, false)
+    fun setLowSpecOn(v: Boolean) = prefs.edit().putBoolean(KEY_LOWSPEC, v).apply()
+
     // ---------- 云账号 (Supabase 会话) ----------
     fun cloudEmail(): String? = prefs.getString(KEY_CLOUD_EMAIL, null)
     fun cloudToken(): String? = prefs.getString(KEY_CLOUD_TOKEN, null)
@@ -51,6 +55,7 @@ class SaveRepository(context: Context) {
         private const val KEY_STATE = "pet_state"
         private const val KEY_SFX = "sfx_on"
         private const val KEY_BGM = "bgm_on"
+        private const val KEY_LOWSPEC = "low_spec_on"   // v1.2.0 低配模式
         private const val KEY_CLOUD_EMAIL = "cloud_email"
         private const val KEY_CLOUD_TOKEN = "cloud_token"
         private const val KEY_CLOUD_UID = "cloud_uid"

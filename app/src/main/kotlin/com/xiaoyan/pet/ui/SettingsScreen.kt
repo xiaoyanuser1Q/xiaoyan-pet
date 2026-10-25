@@ -81,6 +81,19 @@ fun SettingsScreen() {
             }
         }
 
+        // ---------- 显示 (v1.2.0 低配模式) ----------
+        SectionCard("显示") {
+            SettingRow("低配模式", "关闭微摆与背景缓动动画, 旧手机更流畅") {
+                Switch(
+                    checked = PetApp.repo.lowSpecOn(),
+                    onCheckedChange = { on ->
+                        PetApp.repo.setLowSpecOn(on)
+                        PetApp.bump()
+                    },
+                )
+            }
+        }
+
         // ---------- 云存档 ----------
         SectionCard("云存档") {
             if (cloudEmail == null) {
@@ -144,6 +157,11 @@ fun SettingsScreen() {
             SettingRow("重置存档", "名字、数值、剧情全部清空，从头开始") {
                 TextButton(onClick = { resetOpen = true }) { Text("重置") }
             }
+            Text(
+                "本地数据不参与 Android 系统备份；云存档只存在你的 Supabase 账号里。",
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.5f),
+            )
             if (resetOpen) {
                 AlertDialog(
                     onDismissRequest = { resetOpen = false },
@@ -222,7 +240,7 @@ private fun cloudStatusText(ctx: Context): String {
 private suspend fun checkUpdate(): Pair<Boolean, String>? =
     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
-            val conn = java.net.URL("https://xiaoyan-pet-site.pages.dev/version.json").openConnection() as java.net.HttpURLConnection
+            val conn = java.net.URL(SupabaseApi.VERSION_JSON_URL).openConnection() as java.net.HttpURLConnection
             conn.connectTimeout = 12000
             conn.readTimeout = 12000
             val code = conn.responseCode

@@ -68,11 +68,14 @@ fun AboutScreen() {
 
             Text("链接", fontSize = 13.sp, color = Color.White.copy(alpha = 0.55f), modifier = Modifier.padding(bottom = 4.dp))
             LinkRow("官网 · 小桃养成记", "https://xiaoyan-pet.xiaoyan-pan.eu.cc", openUrl)
+            LinkRow("隐私政策", "https://xiaoyan-pet.xiaoyan-pan.eu.cc/privacy.html", openUrl)
             LinkRow("源码 · Gitee（主备份）", "https://gitee.com/xiaoyanuser/xiaoyan-pet", openUrl)
             LinkRow("源码 · GitHub（第二备份）", "https://github.com/xiaoyanuser1Q/xiaoyan-pet", openUrl)
             LinkRow("旧版 APK（v1.0.0）", "https://xiaoyan-pet-site.pages.dev/download/xiaoyan-pet-v1.0.0-release.apk", openUrl)
         }
         Spacer(Modifier.height(24.dp))
+        Text("立绘由 AI 生成（Agnes 图像模型）· 完全免费，无广告无内购", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+        Spacer(Modifier.height(10.dp))
         Text("谢谢你来陪小桃。", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
         Spacer(Modifier.height(16.dp))
     }

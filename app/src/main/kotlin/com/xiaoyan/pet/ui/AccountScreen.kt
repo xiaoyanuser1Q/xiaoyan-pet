@@ -1,23 +1,21 @@
 package com.xiaoyan.pet.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,17 +31,44 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaoyan.pet.PetApp
 import com.xiaoyan.pet.data.AuthResult
-import com.xiaoyan.pet.data.SupabaseApi
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
-/** 账号页: Supabase 邮箱登录/注册 + 云存档入口提示 */
+/**
+ * 账号页 (v1.2.0 横屏重构, 审计体验项): 左右两栏 —— 左品牌, 右表单。
+ * 键盘只顶右栏 (imePadding 只作用在右栏), 左侧品牌不动。
+ */
 @Composable
 fun AccountScreen() {
     val email = PetApp.repo.cloudEmail()
-    if (email != null) {
-        SessionCard(email)
-    } else {
-        LoginForm()
+    Row(Modifier.fillMaxSize()) {
+        BrandColumn(Modifier.weight(0.45f))
+        if (email != null) {
+            SessionCard(email)
+        } else {
+            LoginForm()
+        }
+    }
+}
+
+/** 左栏: 品牌 (登录页横屏, 键盘不顶它) */
+@Composable
+private fun BrandColumn(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("☁️", fontSize = 44.sp)
+        Spacer(Modifier.height(12.dp))
+        Text("账号与云存档", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "登录后可把存档备份到云，换手机也不丢。\n数据只存在你的 Supabase 账号里。",
+            fontSize = 13.sp,
+            color = Color.White.copy(alpha = 0.65f),
+        )
     }
 }
 
@@ -54,12 +79,11 @@ private fun SessionCard(email: String) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("👤", fontSize = 40.sp)
-        Spacer(Modifier.height(10.dp))
         Text(email, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(Modifier.height(4.dp))
         Text(
@@ -74,17 +98,54 @@ private fun SessionCard(email: String) {
             fontSize = 12.sp,
             color = Color.White.copy(alpha = 0.6f),
         )
-        Spacer(Modifier.height(24.dp))
-        PrimaryButton(
-            text = "退出登录",
-            onClick = {
-                PetApp.repo.setCloudSession(null, null, null)
-                PetApp.audio.playSfx("sfx_tap")
-                PetApp.bump()
-            },
-        )
+        Spacer(Modifier.height(18.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TestConnectionRow()
+            PrimaryButton(
+                text = "退出登录",
+                onClick = {
+                    PetApp.repo.setCloudSession(null, null, null)
+                    PetApp.audio.playSfx("sfx_tap")
+                    PetApp.bump()
+                },
+            )
+        }
         Spacer(Modifier.height(6.dp))
         Text("提示: 云存档在「设置 · 云存档」里同步", fontSize = 12.sp, color = Color.White.copy(alpha = 0.55f))
+    }
+}
+
+/** v1.2.0 「🔌 测试连接」: 代理 → Supabase 探活, 显示 HTTP code + 原文 */
+@Composable
+private fun TestConnectionRow() {
+    val cscope = rememberCoroutineScope()
+    var result by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier.width(220.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        PrimaryButton(
+            text = if (busy) "检测中…" else "🔌 测试连接",
+            enabled = !busy,
+            onClick = {
+                busy = true
+                cscope.launch {
+                    val (code, desc, ok) = PetApp.api.testConnection()
+                    result = if (ok) "✅ 连接正常 (HTTP $code)" else "❌ $code · $desc"
+                    busy = false
+                    PetApp.bump()
+                }
+            },
+        )
+        result?.let {
+            Text(
+                it,
+                fontSize = 12.sp,
+                color = if (it.startsWith("✅")) Color(0xFF9AE6B4) else Color(0xFFFFB0B0),
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
     }
 }
 
@@ -98,21 +159,16 @@ private fun LoginForm() {
 
     val cscope = rememberCoroutineScope()
 
+    // 右栏表单: 键盘只顶这一栏 (imePadding 只加在右栏)
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .weight(0.55f)
+            .fillMaxHeight()
+            .imePadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Spacer(Modifier.height(36.dp))
-        Text("☁️", fontSize = 40.sp)
-        Spacer(Modifier.height(10.dp))
-        Text("账号与云存档", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Spacer(Modifier.height(4.dp))
-        Text("登录后可把存档备份到云，换手机也不丢。", fontSize = 13.sp, color = Color.White.copy(alpha = 0.65f))
-        Spacer(Modifier.height(24.dp))
-
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -132,7 +188,7 @@ private fun LoginForm() {
             colors = fieldColors(),
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
         if (needConfirm) {
             Text("注册成功！请先到邮箱点「确认」，再回来登录。", fontSize = 13.sp, color = Color(0xFFFFD76A))
@@ -157,6 +213,13 @@ private fun LoginForm() {
                             is AuthResult.Ok -> {
                                 PetApp.repo.setCloudSession(r.email, r.token, r.uid)
                                 runCatching { PetApp.api.upsertPlayer(r.uid, r.token, PetApp.pet?.name ?: "") }
+                                // v1.2.0: 登录时写 event_logs (表已存在, 不建表)
+                                runCatching {
+                                    PetApp.api.logEvent(
+                                        r.uid, r.token, "login",
+                                        JSONObject().put("version", "1.2.0").put("ts", System.currentTimeMillis()),
+                                    )
+                                }
                                 PetApp.audio.playSfx("sfx_levelup")
                                 PetApp.bump()
                             }

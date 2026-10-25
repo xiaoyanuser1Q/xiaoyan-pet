@@ -106,6 +106,12 @@ object PetApp {
         bump()
     }
 
+    /** v1.2.0: 对外推一个剧情事件 (随机小事件等) */
+    fun pushEvent(e: StoryEvent) {
+        enqueueEvent(e)
+        bump()
+    }
+
     /** 当前应显示的背景图资源 */
     fun backgroundRes(p: PetState?): Int = when {
         p == null || !p.started -> R.drawable.bg_login
@@ -121,6 +127,6 @@ object PetApp {
     }
 
     /** 当前版本号 (与 build.gradle versionCode 保持一致, 检查更新用) */
-    const val CURRENT_VERSION_CODE = 2
-    const val CURRENT_VERSION_NAME = "1.1.0"
+    const val CURRENT_VERSION_CODE = 3
+    const val CURRENT_VERSION_NAME = "1.2.0"
 }
