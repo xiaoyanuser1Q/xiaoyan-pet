@@ -3,12 +3,13 @@ package com.xiaoyan.pet.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.fadeIn
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.slideIn
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,9 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.toPx
 import com.xiaoyan.pet.R
 import kotlinx.coroutines.delay
 import kotlin.random.Random
@@ -70,20 +71,11 @@ private fun AnimatedSprite(resId: Int, lowSpec: Boolean) {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
 
-    // 呼吸 (3.2s 全周期) + 微摆 (4.1s 全周期), 两条独立无限动画
+    // 呼吸 (3.2s 全周期) + 微摆 (4.1s 全周期), 两条独立无限动画 (Compose 1.7.x API)
     val infinite = rememberInfiniteTransition()
-    val breathA = infinite.animate(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1600), RepeatMode.Reverse),
-    )
-    val swayA = infinite.animate(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(2050), RepeatMode.Reverse),
-    )
-    val breath01 = breathA.value            // 0..1
-    val swayWave = swayA.value * 2f - 1f    // -1..1
+    val breath01 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Reverse))
+    val sway01 by infinite.animateFloat(0f, 1f, infiniteRepeatable(tween(2050), RepeatMode.Reverse))
+    val swayWave = sway01 * 2f - 1f  // -1..1
 
     // 眨眼: 3-6s 随机, scaleY 0.97 / 120ms 回弹
     var blinkOn by remember { mutableStateOf(false) }
@@ -99,8 +91,9 @@ private fun AnimatedSprite(resId: Int, lowSpec: Boolean) {
     val blinkScale by animateFloatAsState(
         targetValue = if (blinkOn) 0.97f else 1f,
         animationSpec = tween(120),
-        finishedValue = 1f,
     )
+
+    val density = LocalDensity.current.density
 
     AnimatedVisibility(
         visible = shown,
@@ -116,7 +109,7 @@ private fun AnimatedSprite(resId: Int, lowSpec: Boolean) {
                     transformOrigin = TransformOrigin(0.5f, 1f)
                     scaleY = (1f + 0.012f * breath01) * blinkScale
                     rotationZ = if (lowSpec) 0f else swayWave * 1.5f
-                    translationY = (-2f * breath01).toPx()
+                    translationY = (-2f * breath01) * density
                 },
             contentScale = ContentScale.Fit,
             alignment = Alignment.BottomCenter,
