@@ -7,12 +7,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -115,7 +119,7 @@ fun SettingsScreen() {
                             Text(" $label ", fontSize = 12.sp,
                                 color = if (active) Color(0xFFFF8FB8) else Color.White.copy(alpha = 0.6f))
                         }
-                        Spacer(modifier = androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp)))
+                        Spacer(Modifier.width(8.dp))
                     }
                 }
             }
@@ -318,7 +322,7 @@ fun SettingsScreen() {
         if (BuildConfig.DEBUG) {
             SectionCard("调试 (debug 构建)") {
                 SettingRow("Debug 面板", "直设三线/等级/表面值 (上限 104/103/110), 验收走真实 Lv95 抉择流") {
-                    TextButton(onClick = { PetApp.debugOpen = true; PetApp.bump() }) { Text("打开") }
+                    TextButton(onClick = { PetApp.debugOpen.value = true; PetApp.bump() }) { Text("打开") }
                 }
             }
         }

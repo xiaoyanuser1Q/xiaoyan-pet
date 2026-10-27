@@ -84,11 +84,11 @@ fun AppRoot() {
         // ---------- 更新横幅 (T0: 发现新版本 → APP 内下载 → 安装) ----------
         val info = PetApp.updateInfo.value
         if (info != null) {
-            UpdateBanner(info)
+            UpdateBanner(info, Modifier.align(Alignment.TopEnd))
         }
 
         // ---------- debug 面板 (仅 debug 构建; release 整行被常量折叠剔除) ----------
-        if (BuildConfig.DEBUG && PetApp.debugOpen) {
+        if (BuildConfig.DEBUG && PetApp.debugOpen.value) {
             val host = PetApp.debugPanel
             host?.invoke()
         }
@@ -161,11 +161,10 @@ private fun EventDialog(ev: PetEvent) {
 
 /** 更新横幅 (顶栏): 发现新版本 / 下载进度 / 安装 */
 @Composable
-private fun UpdateBanner(info: com.xiaoyan.pet.data.Updater.UpdateInfo) {
+private fun UpdateBanner(info: com.xiaoyan.pet.data.Updater.UpdateInfo, modifier: Modifier = Modifier) {
     val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity ?: return
     Column(
-        modifier = Modifier
-            .align(Alignment.TopEnd)
+        modifier = modifier
             .padding(10.dp)
             .fillMaxWidth()
             .background(Color(0xFF5C1230).copy(alpha = 0.92f), RoundedCornerShape(14.dp))

@@ -161,8 +161,9 @@ fun StartMenu() {
                         PetApp.audio.playSfx("sfx_01_tap")
                         PetApp.screen = com.xiaoyan.pet.Screen.Game
                         // 首次进入补播序幕
-                        val p = PetApp.pet
-                        PetApp.pushLines(PetApp.prologueLinesIfFresh(p) ?: emptyList())
+                        PetApp.pet?.let { p ->
+                            PetApp.pushLines(PetApp.prologueLinesIfFresh(p) ?: emptyList())
+                        }
                     }
                 }
                 Spacer(Modifier.width(10.dp))

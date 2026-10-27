@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -138,3 +139,17 @@ fun GhostButton(
         Text(text, fontSize = 14.sp, color = Color.White)
     }
 }
+
+/** 输入框配色 (深底白字): 登录/注册/起名共用 */
+@Composable
+fun fieldColors(): TextFieldColors = TextFieldColors(
+    cursorColor = Color.White,
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color.White,
+    focusedLabelColor = Color(0xFFFFD76A),
+    unfocusedLabelColor = Color.White.copy(alpha = 0.8f),
+    focusedIndicatorColor = Color(0xFFFFD76A),
+    unfocusedIndicatorColor = Color.White.copy(alpha = 0.35f),
+    focusedContainerColor = Color.White.copy(alpha = 0.10f),
+    unfocusedContainerColor = Color.White.copy(alpha = 0.06f),
+)

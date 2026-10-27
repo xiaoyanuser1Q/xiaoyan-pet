@@ -3,7 +3,6 @@ build/
 app/build/
 *.apk
 *.aab
-!app/build/
 
 # Gradle
 .gradle/

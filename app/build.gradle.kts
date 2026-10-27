@@ -49,6 +49,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true   // v1.3.0: UI 用 BuildConfig.DEBUG 门控 debug 面板入口 (AGP8 默认不生成)
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"

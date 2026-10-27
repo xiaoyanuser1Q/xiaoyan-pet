@@ -40,34 +40,43 @@ object StoryData {
             listOf(
                 ChoiceOpt("o20_cur", "去公园，看最后一场花",
                     Line("花瓣落了一肩。她说：「花会谢，但我知道——明年它们还会开的。」（好奇 +3）", "surprised"),
+                    "curiosity"),
                 ChoiceOpt("o20_warm", "不出门了，就在窗边取暖",
                     Line("你们挤在一只热水袋两边。她说：「外面冷，但这里比外面暖。」（温度 +3）", "shy"),
+                    "warmth"),
             )),
         Choice("45", 45,
             Line("夏夜的市集上，最后一串糖葫芦只剩一颗。「给你，还是给我？」她歪着头笑。", "happy"),
             listOf(
                 ChoiceOpt("o45_cur", "买一张写着小镇的船票",
                     Line("她把船票收进贴身的口袋。「总有一天，我要去看看那个小镇。」（好奇 +3）", "surprised"),
+                    "curiosity"),
                 ChoiceOpt("o45_warm", "分掉最后一颗糖",
                     Line("一分为二，一人一半。「甜的。」她说。然后她看着你，突然红了脸。（温度 +3）", "shy"),
+                    "warmth"),
             )),
         Choice("70", 70,
             Line("信的最后，有一行被雨水洇开的字。她举着信，等你的话。", "neutral"),
             listOf(
                 ChoiceOpt("o70_cur", "一起查那张旧地图",
                     Line("你在旧地图上圈出了那座山。「找到了。」她轻轻说。声音在抖。（好奇 +3）", "surprised"),
+                    "curiosity"),
                 ChoiceOpt("o70_warm", "先别走了，把约守住",
                     Line("她把信贴在心口。「那就再等一等。等我心里有底了，再说。」（温度 +3）", "shy"),
+                    "warmth"),
             )),
         Choice("95", 95,
             Line("冬天的最后一夜。她捧着桃花枝，很轻地问：「我现在，可以听到答案了吗？」", "neutral"),
             listOf(
                 ChoiceOpt("return", "让她回小镇",
                     Line("她接住那枝桃花。眼睛亮了一下，又暗了一下。「……好。谢谢。」", "sad"),
+                    null),   // 95 号抉择由 optId 记账 (GameLogic.applyChoice), effect 留空
                 ChoiceOpt("keep", "一起守住约定",
                     Line("她把手放进你的手里。掌心是温的。「那这个约，就永远算数。」（承诺 +5 · 选后记账）", "happy"),
+                    null),
                 ChoiceOpt("truth", "告诉她真相",
                     Line("她安静了很久。「……我知道了。」她抬起头，眼里有星光。", "surprised"),
+                    null),
             )),
     )
 

@@ -150,9 +150,10 @@ fun GameScreen() {
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Scenes.ALL.forEach { sc ->
+                // for 循环而非 forEach: 循环体内直接调 @Composable SceneTab (非 composable lambda 里调会编译错)
+                for (sc in Scenes.ALL) {
                     val unlocked = sc in Rules.unlockedScenes(act)
-                    SceneTab(sc, unlocked = unlocked, active = sc == scene) {
+                    SceneTab(sc, unlocked = unlocked, active = sc == scene, modifier = Modifier.weight(1f)) {
                         if (unlocked) {
                             scene = it
                             PetApp.audio.playSfx("sfx_01_tap")
@@ -270,10 +271,9 @@ private fun DialogueBox(line: StoryData.Line?) {
 }
 
 @Composable
-private fun SceneTab(sc: String, unlocked: Boolean, active: Boolean, onClick: (String) -> Unit) {
+private fun SceneTab(sc: String, unlocked: Boolean, active: Boolean, modifier: Modifier = Modifier, onClick: (String) -> Unit) {
     Box(
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .background(
                 when {
                     active -> Color(0xFFFF8FB8).copy(alpha = 0.5f)
@@ -370,7 +370,8 @@ private fun ChoiceBlock(key: String) {
     }
     Spacer(Modifier.height(8.dp))
     Column(Modifier.fillMaxWidth()) {
-        opts.forEachIndexed { i, opt ->
+        // for 循环而非 forEachIndexed: 循环体内直接调 @Composable (非 composable lambda 里调会编译错)
+        for (i in opts.indices) {
             StaggeredOption(i) {
                 Box(
                     modifier = Modifier
@@ -378,12 +379,12 @@ private fun ChoiceBlock(key: String) {
                         .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
                         .clickable {
                             PetApp.audio.playSfx("sfx_15_choice")
-                            PetApp.doChoice(key, opt.id)
+                            PetApp.doChoice(key, opts[i].id)
                         }
                         .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(opt.label, fontSize = 14.sp, color = Color.White, textAlign = TextAlign.Center)
+                    Text(opts[i].label, fontSize = 14.sp, color = Color.White, textAlign = TextAlign.Center)
                 }
             }
             if (i < opts.size - 1) Spacer(Modifier.height(8.dp))
