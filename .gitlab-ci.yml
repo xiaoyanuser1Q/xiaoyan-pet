@@ -59,7 +59,7 @@ build-release:
     - ls -la xiaoyan-pet-v1.3.0-release.apk
     # 构建后证书红线复检 (apksigner 为准, keytool -printcert 不可靠)
     - APKSIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"; $APKSIGNER verify --print-certs xiaoyan-pet-v1.3.0-release.apk 2>&1 | head -12 || echo "(apksigner missing)"
-    - POST_SHA="$(APKSIGNER verify --print-certs xiaoyan-pet-v1.3.0-release.apk 2>/dev/null | grep -m1 SHA-256: | awk '{print $2}')"
+    - "POST_SHA=$(APKSIGNER verify --print-certs xiaoyan-pet-v1.3.0-release.apk 2>/dev/null | grep -m1 'SHA-256:' | awk '{print $2}')"
     - echo "apk cert SHA-256 = $POST_SHA"
     - if [ "${POST_SHA%%}" != "e47e48d3"* ]; then echo "!!! 构建后证书与红线不一致 !!!"; exit 1; fi
     - sha256sum xiaoyan-pet-v1.3.0-release.apk
