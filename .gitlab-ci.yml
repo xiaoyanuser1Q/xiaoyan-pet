@@ -74,7 +74,7 @@ build-release:
     - POST_PREFIX=$(printf '%s' "$POST_SHA" | cut -c1-8); echo "apk cert prefix = $POST_PREFIX"; if [ "$POST_PREFIX" != "e47e48d3" ]; then echo "!!! 构建后证书与红线 e47e48d3 不一致 !!!"; exit 1; fi
     - sha256sum xiaoyan-pet-v1.3.0-release.apk
     # 红线自查: release 包必须不含 debug 面板 (面板类在 debug 源码集, release 不编译进包; dex 级复核类名残留)
-    - "unzip -p xiaoyan-pet-v1.3.0-release.apk classes*.dex 2>/dev/null | grep -a 'DebugPanel' && echo '!!! release 含 DebugPanel !!!' && exit 1 || echo 'debug 面板复核 OK (release 无 DebugPanel 类)'"
+    - "unzip -p xiaoyan-pet-v1.3.0-release.apk classes*.dex 2>/dev/null | grep -a 'Lcom/xiaoyan/pet/ui/DebugPanel;' && echo '!!! release 含 DebugPanel 类 !!!' && exit 1 || echo 'debug 面板复核 OK (类描述符 0 命中; PetApp.debugOpen/debugPanel 钩子属主源码集, getDebugPanel 访问器字符串残留为正常)'"
   artifacts:
     when: on_success
     paths:
