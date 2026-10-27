@@ -39,7 +39,10 @@ check-cert:
     - CERT_SHA256="$(keytool -list -v -keystore app/keystore/release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>/dev/null | grep -m1 'SHA256:' | awk '{print $2}' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
     - echo "keystore cert SHA-256 = $CERT_SHA256"
     - |
-      if [ "${CERT_SHA256%%}" != "e47e48d3"* ]; then
+      # dash /bin/sh 的 test 不支持 * 通配, 用 cut 取前 8 位做字面比较 (v1.3.0 fix)
+      CERT_PREFIX=$(printf '%s' "$CERT_SHA256" | cut -c1-8)
+      echo "cert prefix = $CERT_PREFIX"
+      if [ "$CERT_PREFIX" != "e47e48d3" ]; then
         echo "!!! 证书指纹与红线 e47e48d3 不一致, 停止构建 !!!"
         exit 1
       fi
@@ -61,7 +64,7 @@ build-release:
     - APKSIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"; $APKSIGNER verify --print-certs xiaoyan-pet-v1.3.0-release.apk 2>&1 | head -12 || echo "(apksigner missing)"
     - "POST_SHA=$(APKSIGNER verify --print-certs xiaoyan-pet-v1.3.0-release.apk 2>/dev/null | grep -m1 'SHA-256:' | awk '{print $2}')"
     - echo "apk cert SHA-256 = $POST_SHA"
-    - if [ "${POST_SHA%%}" != "e47e48d3"* ]; then echo "!!! 构建后证书与红线不一致 !!!"; exit 1; fi
+    - POST_PREFIX=$(printf '%s' "$POST_SHA" | cut -c1-8); echo "apk cert prefix = $POST_PREFIX"; if [ "$POST_PREFIX" != "e47e48d3" ]; then echo "!!! 构建后证书与红线 e47e48d3 不一致 !!!"; exit 1; fi
     - sha256sum xiaoyan-pet-v1.3.0-release.apk
     # 红线自查: release 包必须不含 debug 面板 (面板类在 debug 源码集, release 不编译进包; dex 级复核类名残留)
     - "unzip -p xiaoyan-pet-v1.3.0-release.apk classes*.dex 2>/dev/null | grep -a 'DebugPanel' && echo '!!! release 含 DebugPanel !!!' && exit 1 || echo 'debug 面板复核 OK (release 无 DebugPanel 类)'"
