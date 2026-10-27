@@ -105,7 +105,7 @@ private fun SessionCard(email: String, modifier: Modifier = Modifier) {
                 text = "退出登录",
                 onClick = {
                     PetApp.repo.setCloudSession(null, null, null)
-                    PetApp.audio.playSfx("sfx_tap")
+                    PetApp.audio.playSfx("sfx_01_tap")
                     PetApp.bump()
                 },
             )
@@ -219,12 +219,12 @@ private fun LoginForm(modifier: Modifier = Modifier) {
                                         JSONObject().put("version", "1.2.0").put("ts", System.currentTimeMillis()),
                                     )
                                 }
-                                PetApp.audio.playSfx("sfx_levelup")
+                                PetApp.audio.playSfx("sfx_12_levelup")
                                 PetApp.bump()
                             }
                             is AuthResult.Err -> {
                                 status = r.message
-                                PetApp.audio.playSfx("sfx_warn")
+                                PetApp.audio.playSfx("sfx_13_warn")
                             }
                         }
                         busy = false
@@ -247,13 +247,13 @@ private fun LoginForm(modifier: Modifier = Modifier) {
                                 } else {
                                     PetApp.repo.setCloudSession(r.email, r.token, r.uid)
                                     runCatching { PetApp.api.upsertPlayer(r.uid, r.token, PetApp.pet?.name ?: "") }
-                                    PetApp.audio.playSfx("sfx_levelup")
+                                    PetApp.audio.playSfx("sfx_12_levelup")
                                 }
                                 PetApp.bump()
                             }
                             is AuthResult.Err -> {
                                 status = r.message
-                                PetApp.audio.playSfx("sfx_warn")
+                                PetApp.audio.playSfx("sfx_13_warn")
                             }
                         }
                         busy = false

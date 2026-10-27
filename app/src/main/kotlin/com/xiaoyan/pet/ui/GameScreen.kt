@@ -3,7 +3,6 @@ package com.xiaoyan.pet.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,12 +15,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,152 +30,191 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaoyan.pet.PetApp
 import com.xiaoyan.pet.data.PetState
-import com.xiaoyan.pet.game.ActionResult
+import com.xiaoyan.pet.game.DayPhase
 import com.xiaoyan.pet.game.GameLogic
-import com.xiaoyan.pet.game.Story
-import com.xiaoyan.pet.game.StoryLine
+import com.xiaoyan.pet.game.Rules
+import com.xiaoyan.pet.game.Scenes
+import com.xiaoyan.pet.game.StoryData
 import kotlinx.coroutines.delay
 
 /**
- * 主屏 (v1.2.0 横屏 VN 版):
- * - 左 45%: 小桃立绘 (ContentScale.Fit + BottomCenter, 零裁切, 审计②) + 顶部紧凑状态
- * - 右 55%: 对话框 (打字机 25-30ms/字 + 点击加速) / 抉择 (stagger 入场) / 动作栏
- * - 台词带 mood → 立绘自动切表情 (Crossfade + 上滑 200ms)
+ * 主养成屏 (v1.3.0 场景制横屏 VN):
+ * - 左 45%: 立绘 (换装优先级 + fallback 直切帧) + 紧凑状态 + 星光粒子
+ * - 右 55%: 幕/日时 + 场景 tab + 对话框 (打字机) / 抉择 + 当前场景互动锚点
+ * - 离线回归: 先温情台词, warn 延后 30s 每回归周期 1 次 (v3 裁定⑤)
  */
 @Composable
 fun GameScreen() {
-    val pet = PetApp.pet
-    if (pet == null || !pet.started) return
-    val p = pet
+    val p = PetApp.pet
+    if (p == null || !p.started) return
+    val pet = p
 
-    if (p.ended.isNotEmpty()) {
-        if (p.endingSeen) EndedScene(p) else EndingWait()
+    if (pet.ended.isNotEmpty()) {
+        if (pet.endingSeen) EndedScene() else EndingWait()
         return
     }
 
-    val lowSpec = PetApp.repo.lowSpecOn()
+    val repo = PetApp.repo
+    val lowSpec = repo.lowSpecOn()
+    val act = Rules.actOf(pet.level)
+    val phase = DayPhase.current(repo, pet.asleep, System.currentTimeMillis())
 
-    // VN 台词状态: 当前台词 (打字机), null = 无
-    var line by remember { mutableStateOf<StoryLine?>(null) }
-    var talkOpen by remember { mutableStateOf(false) }
+    // ---------- 当前场景 (会话内记忆; 解锁变化时回落客厅) ----------
+    var scene by remember { mutableStateOf(Scenes.LIVINGROOM) }
+    if (scene !in Rules.unlockedScenes(act)) scene = Scenes.LIVINGROOM
+    val costume = Scenes.costumeFor(act, phase, scene)
+    val hotspots = Scenes.hotspots(scene)
 
-    val actNeed = GameLogic.pendingChoice(p)
-    val showChoice = actNeed != null && p.level >= Story.choiceLevel(actNeed!!)
+    // ---------- VN 台词 ----------
+    var line by remember { mutableStateOf<StoryData.Line?>(null) }
+    var warmPlayed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        // 离线回归: 温情台词优先 (粒子小特效已随立绘层开启)
+        if (PetApp.warmReturnPending.value && !warmPlayed) {
+            line = StoryData.WARM_RETURN
+            PetApp.consumeWarmReturn()
+            warmPlayed = true
+            // warn (饱食<30) 延后 30s, 每回归周期仅 1 次, 不与温情台词同屏
+            delay(30_000L)
+            val petNow = PetApp.pet
+            if (petNow != null && petNow.satiety < 30 && petNow.ended.isEmpty()) {
+                line = StoryData.WARN_SATIE
+                PetApp.audio.playSfx("sfx_13_warn")
+            }
+        }
+    }
 
     Row(Modifier.fillMaxSize()) {
-        // ---------- 左 45%: 立绘 + 状态 (点立绘 = 抚摸) ----------
+        // ---------- 左 45%: 立绘 + 状态 ----------
         Box(
             modifier = Modifier
                 .weight(0.45f)
-                .fillMaxHeight()
-                .clickable {
-                    var r: ActionResult? = null
-                    PetApp.doAction { s -> GameLogic.pet(s).also { r = it } }
-                    r?.line?.let { ln -> line = ln }
-                },
-            contentAlignment = Alignment.BottomCenter,
+                .fillMaxHeight(),
         ) {
-            val mood = line?.mood ?: when {
-                p.isUnwell() -> PortraitMood.SAD
-                p.mood >= 80 -> PortraitMood.HAPPY
-                p.mood <= 40 -> PortraitMood.SAD
-                else -> PortraitMood.NEUTRAL
-            }
-            PortraitSprite(mood = mood, lowSpec = lowSpec)
+            PortraitSprite(costume = costume, mood = currentMoodOf(pet, line?.mood), lowSpec = lowSpec)
+            StarParticles(on = !lowSpec)
+
+            // 紧凑状态面板
             Column(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(8.dp)
-                    .width(150.dp)
-                    .background(Color.Black.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                    .width(172.dp)
+                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
                     .padding(8.dp),
             ) {
-                Text("${p.name} · Lv.${p.level}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(
+                    "${pet.name} · Lv.${pet.level} · ${actLabel(act)}",
+                    fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                )
                 Spacer(Modifier.height(4.dp))
-                MiniStat("饥饿", p.hunger, Color(0xFFFFB7C8))
-                MiniStat("心情", p.mood, Color(0xFFFFD76A))
-                MiniStat("健康", p.health, Color(0xFF9AE6B4))
-                MiniStat("亲密", p.intimacy, Color(0xFFB7A8FF))
-                Text("经验 ${p.xp}/${p.xpNeed()}", fontSize = 10.sp, color = Color.White.copy(alpha = 0.7f))
+                MiniStat("饱食", pet.satiety, Color(0xFFFFB7C8))
+                MiniStat("心情", pet.mood, Color(0xFFFFD76A))
+                MiniStat("体力", pet.energy, Color(0xFF9AE6B4), maxV = pet.energyCap())
+                MiniStat("亲密", pet.intimacy, Color(0xFFB7A8FF))
+                Text("经验 ${pet.xp}/${pet.xpNeed()} · 今日 ${pet.xpToday}/45", fontSize = 10.sp, color = Color.White.copy(alpha = 0.7f))
+                ThreeStars(pet)
+            }
+
+            // 场景指示
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(10.dp)
+                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(Scenes.icon(scene) + " " + Scenes.label(scene), fontSize = 12.sp, color = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Text(DayPhase.icon(phase) + " " + DayPhase.label(phase), fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
             }
         }
 
-        // ---------- 右 55%: 对话框 + 选项 + 动作栏 ----------
+        // ---------- 右 55%: 场景 + 台词 + 抉择 + 互动 ----------
         Column(
             modifier = Modifier
                 .weight(0.55f)
                 .fillMaxHeight()
-                .imePadding()
                 .padding(14.dp),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(actLabel(p.act), fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f))
-                Spacer(Modifier.width(10.dp))
-                if (p.missingThing.isNotBlank()) {
-                    Text("找回：${p.missingThing}", fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f))
+            // 场景 tab 行
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Scenes.ALL.forEach { sc ->
+                    val unlocked = sc in Rules.unlockedScenes(act)
+                    SceneTab(sc, unlocked = unlocked, active = sc == scene) {
+                        if (unlocked) {
+                            scene = it
+                            PetApp.audio.playSfx("sfx_01_tap")
+                        }
+                    }
                 }
             }
-            Spacer(Modifier.height(8.dp))
 
-            if (showChoice && actNeed != null) {
-                ChoiceBlock(act = actNeed, onPick = { idx ->
-                    var r: ActionResult? = null
-                    PetApp.doAction { s -> GameLogic.applyChoice(s, actNeed, idx).also { r = it } }
-                    r?.line?.let { ln -> line = ln }
-                })
+            // 抉择 (Lv20/45/70/95; 100 前未选 = 结局前强制)
+            val pendingKey = StoryData.pendingChoiceLevel(pet.level, pet.choices)
+            if (pendingKey != null) {
+                ChoiceBlock(pendingKey)
             } else {
                 DialogueBox(line = line)
             }
             Spacer(Modifier.weight(1f))
 
-            TalkRow(open = talkOpen, onToggle = { talkOpen = it }, onLine = { ln -> line = ln }, p = p)
-            Spacer(Modifier.height(8.dp))
-            ActionRow(
-                onPick = { key ->
-                    if (key == "talk") {
-                        talkOpen = true
-                    } else {
-                        var r: ActionResult? = null
-                        when (key) {
-                            "feed" -> PetApp.doAction { s -> GameLogic.feed(s).also { r = it } }
-                            "play" -> PetApp.doAction { s -> GameLogic.play(s).also { r = it } }
-                            "rest" -> PetApp.doAction { s -> GameLogic.rest(s).also { r = it } }
-                            "pet" -> PetApp.doAction { s -> GameLogic.pet(s).also { r = it } }
-                        }
-                        r?.line?.let { ln -> line = ln }
-                        // 随机小事件 (15%, 每条只触发一次)
-                        val ev = GameLogic.rollRandomEvent(p)
-                        if (ev != null) PetApp.pushEvent(ev)
+            // 互动锚点 (当前场景; 体力 0 锁耗体力按钮, S13)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                hotspots.forEach { h ->
+                    val id = if (scene == Scenes.BEDROOM && h.id == "sleep" && pet.asleep) "wake" else h.id
+                    val label = if (id == "wake") "起床" else h.label
+                    val disabled = id != "wake" && Rules.consumesEnergy(id) && pet.energy <= 0
+                    HotspotButton(
+                        text = label,
+                        enabled = !disabled,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        PetApp.doInteraction(id)
                     }
-                },
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "体力 ${pet.energy}/${pet.energyCap()} · 书架 ${pet.dailyBookshelf}/3 · 电视 ${pet.dailyTv}/2" +
+                    if (pet.energy <= 0) " · 力竭了（睡觉回满）" else "",
+                fontSize = 11.sp, color = Color.White.copy(alpha = 0.55f),
             )
         }
     }
 }
 
 private fun actLabel(act: Int): String = when (act) {
-    3 -> "第三幕 · 抉择"
-    2 -> "第二幕 · 异变"
-    else -> "第一幕 · 相遇"
+    1 -> "一幕 · 春"
+    2 -> "二幕 · 夏"
+    3 -> "三幕 · 秋"
+    else -> "四幕 · 冬"
 }
 
-/** 紧凑状态条 (立绘左上角) */
+/** 紧凑状态条 (立绘左上角; maxV 用于体力等非常规 100 上限) */
 @Composable
-private fun MiniStat(label: String, value: Int, color: Color) {
+private fun MiniStat(label: String, value: Int, color: Color, maxV: Int = 100) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 1.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.width(30.dp))
+        Text(label, fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.width(32.dp))
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -189,7 +224,7 @@ private fun MiniStat(label: String, value: Int, color: Color) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(value / 100f)
+                    .fillMaxWidth((value / maxV.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f))
                     .background(color, RoundedCornerShape(3.dp)),
             )
         }
@@ -199,7 +234,7 @@ private fun MiniStat(label: String, value: Int, color: Color) {
 
 /** 对话框: 打字机 27ms/字, 点击立即完成 */
 @Composable
-private fun DialogueBox(line: StoryLine?) {
+private fun DialogueBox(line: StoryData.Line?) {
     val text = line?.text ?: ""
     var shown by remember(text) { mutableIntStateOf(0) }
     LaunchedEffect(text) {
@@ -211,15 +246,15 @@ private fun DialogueBox(line: StoryLine?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp)
+            .height(110.dp)
             .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
             .clickable {
-                if (shown < text.length) shown = text.length // 点击加速
+                if (shown < text.length) shown = text.length   // 点击加速
             }
             .padding(14.dp),
     ) {
         if (text.isEmpty()) {
-            Text("点一点小桃，或从下面的动作里挑一个。", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+            Text("点场景里的小物件，和小桃互动。", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
         } else {
             Text(
                 text.take(shown) + if (shown < text.length) "▌" else "",
@@ -234,10 +269,86 @@ private fun DialogueBox(line: StoryLine?) {
     }
 }
 
-/** 抉择: 二选一, 选项 stagger 逐条入场 */
 @Composable
-private fun ChoiceBlock(act: Int, onPick: (Int) -> Unit) {
-    val choice = Story.choiceFor(act)
+private fun SceneTab(sc: String, unlocked: Boolean, active: Boolean, onClick: (String) -> Unit) {
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .background(
+                when {
+                    active -> Color(0xFFFF8FB8).copy(alpha = 0.5f)
+                    unlocked -> Color.White.copy(alpha = 0.12f)
+                    else -> Color.White.copy(alpha = 0.04f)
+                },
+                RoundedCornerShape(10.dp),
+            )
+            .clickable { onClick(sc) }
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            (if (unlocked) Scenes.icon(sc) else "🔒") + " " + Scenes.label(sc),
+            fontSize = 11.sp,
+            color = if (unlocked) Color.White else Color.White.copy(alpha = 0.3f),
+        )
+    }
+}
+
+@Composable
+private fun HotspotButton(text: String, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .background(
+                if (enabled) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.06f),
+                RoundedCornerShape(14.dp),
+            )
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (enabled) text else "💤 $text",
+            fontSize = 14.sp,
+            color = if (enabled) Color.White else Color.White.copy(alpha = 0.35f),
+        )
+    }
+}
+
+/** 心意三枚星 (G2 三态: 微光/半亮/全亮, 不剧透数值) */
+@Composable
+private fun ThreeStars(p: PetState) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        StarDot("温", Rules.starState(p.warmthLine))
+        StarDot("好", Rules.starState(p.curiosityLine))
+        StarDot("诺", Rules.starState(p.promiseLine))
+        Spacer(Modifier.weight(1f))
+        Text("心意", fontSize = 10.sp, color = Color.White.copy(alpha = 0.5f))
+    }
+}
+
+@Composable
+private fun StarDot(label: String, state: Int) {
+    val color = when (state) {
+        2 -> Color(0xFFFFE08A)
+        1 -> Color(0xFFFFE08A).copy(alpha = 0.6f)
+        else -> Color(0xFFFFE08A).copy(alpha = 0.25f)
+    }
+    Row(
+        modifier = Modifier.padding(end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("✦", fontSize = 11.sp, color = color)
+        Text(label, fontSize = 9.sp, color = Color.White.copy(alpha = 0.55f))
+    }
+}
+
+@Composable
+private fun ChoiceBlock(key: String) {
+    val pet = PetApp.pet ?: return
+    val choice = StoryData.choiceByKey(key)
+    // Lv95: 「真相」选项仅三线 ≥80 时出现 (判定在 Lv95 加分前, R1)
+    val opts = if (key == "95") choice.options.filter { it.id != "truth" || GameLogic.canTruth(pet) }
+        else choice.options
     var promptShown by remember { mutableIntStateOf(0) }
     LaunchedEffect(choice) {
         while (promptShown < choice.prompt.text.length) {
@@ -248,31 +359,40 @@ private fun ChoiceBlock(act: Int, onPick: (Int) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(96.dp)
+            .height(92.dp)
             .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
-            .padding(14.dp),
+            .padding(12.dp),
     ) {
         Text(
             choice.prompt.text.take(promptShown),
-            fontSize = 14.sp,
-            color = Color.White,
-            lineHeight = 20.sp,
+            fontSize = 14.sp, color = Color.White, lineHeight = 20.sp,
         )
     }
-    Spacer(Modifier.height(10.dp))
-    Column(modifier = Modifier.fillMaxWidth()) {
-        choice.options.forEachIndexed { i, opt ->
+    Spacer(Modifier.height(8.dp))
+    Column(Modifier.fillMaxWidth()) {
+        opts.forEachIndexed { i, opt ->
             StaggeredOption(i) {
-                ChoiceOptionButton(opt.label) { onPick(i) }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
+                        .clickable {
+                            PetApp.audio.playSfx("sfx_15_choice")
+                            PetApp.doChoice(key, opt.id)
+                        }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(opt.label, fontSize = 14.sp, color = Color.White, textAlign = TextAlign.Center)
+                }
             }
-            if (i < choice.options.size - 1) Spacer(Modifier.height(8.dp))
+            if (i < opts.size - 1) Spacer(Modifier.height(8.dp))
         }
     }
 }
 
-/** 带 stagger 入场的选项 */
 @Composable
-private fun StaggeredOption(index: Int, content: @Composable () -> Unit) {
+fun StaggeredOption(index: Int, content: @Composable () -> Unit) {
     var placed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(180L * (index + 1))
@@ -281,108 +401,16 @@ private fun StaggeredOption(index: Int, content: @Composable () -> Unit) {
     AnimatedVisibility(
         visible = placed,
         enter = slideIn(animationSpec = tween(200)) { IntOffset(0, (it.height * 0.2f).toInt()) } + fadeIn(tween(200)),
-        exit = fadeOut(tween(150)),
     ) {
         content()
     }
 }
 
-@Composable
-private fun ChoiceOptionButton(label: String, onClick: () -> Unit) {
-    Text(
-        label,
-        fontSize = 14.sp,
-        color = Color.White,
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-    )
-}
-
-/** 谈心一行 (横屏压缩版, 键盘只顶右栏) */
-@Composable
-private fun TalkRow(open: Boolean, onToggle: (Boolean) -> Unit, onLine: (StoryLine) -> Unit, p: PetState) {
-    var text by remember { mutableStateOf("") }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (!open) {
-            Text(
-                "💬 点这儿和小桃说心里话",
-                fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier
-                    .clickable { onToggle(true) }
-                    .padding(vertical = 8.dp),
-            )
-        } else {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it.take(60) },
-                placeholder = { Text("想说给小桃听的话…", fontSize = 12.sp) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                colors = fieldColors(),
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            PrimaryButton(
-                text = "说",
-                onClick = {
-                    if (text.isNotBlank()) {
-                        var r: ActionResult? = null
-                        PetApp.doAction { s -> GameLogic.talk(s, text.trim()).also { r = it } }
-                        onLine(r?.line ?: StoryLine(r?.message ?: "", PortraitMood.NEUTRAL))
-                    }
-                    text = ""
-                    onToggle(false)
-                },
-                modifier = Modifier.width(70.dp),
-            )
-        }
-    }
-}
-
-/** 动作栏 (横屏紧凑 5 键) */
-@Composable
-private fun ActionRow(onPick: (String) -> Unit) {
-    val actions = listOf(
-        Triple("🍎", "喂食", "feed"),
-        Triple("🎮", "玩耍", "play"),
-        Triple("😴", "休息", "rest"),
-        Triple("✋", "抚摸", "pet"),
-        Triple("💬", "谈心", "talk"),
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        actions.forEach { (icon, label, key) ->
-            Column(
-                modifier = Modifier
-                    .clickable { onPick(key) }
-                    .padding(horizontal = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(icon, fontSize = 20.sp)
-                Spacer(Modifier.height(2.dp))
-                Text(label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.9f))
-            }
-        }
-    }
-}
-
-/** 结局尚未读完时的占位画面 (EndingOverlay 会覆盖在上面) */
+/** 结局尚未读完时的占位画面 (EndingOverlay 覆盖) */
 @Composable
 private fun EndingWait() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -393,58 +421,50 @@ private fun EndingWait() {
     }
 }
 
-/** 结局后的主屏 (横屏): 左立绘 + 右文案 + 重新开始 */
+/** 结局后的主屏: 左立绘 (C = 星光裙 + 粒子) + 右文案 + 重新开始 */
 @Composable
-private fun EndedScene(p: PetState) {
+private fun EndedScene() {
+    val p = PetApp.pet ?: return
+    val costume = if (p.ended == "C") Scenes.COSTUME_STAR else Scenes.COSTUME_DAILY
     Row(Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .weight(0.45f)
-                .fillMaxHeight(),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            PortraitSprite(mood = PortraitMood.NEUTRAL, lowSpec = PetApp.repo.lowSpecOn())
+        Box(Modifier.weight(0.45f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+            PortraitSprite(costume = costume, mood = if (p.ended == "A") "sad" else "happy", lowSpec = PetApp.repo.lowSpecOn())
+            if (p.ended == "C") StarParticles(on = !PetApp.repo.lowSpecOn())
         }
         Column(
-            modifier = Modifier
-                .weight(0.55f)
-                .fillMaxHeight()
-                .padding(20.dp),
+            modifier = Modifier.weight(0.55f).fillMaxHeight().padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("✦ ✧ ✦", fontSize = 32.sp, color = Color(0xFFFFF3C4))
-            Spacer(Modifier.height(14.dp))
-            Text(
-                when (p.ended) {
-                    "B" -> "她说：「${p.endingFirstWord.ifBlank { "……" }}」"
-                    else -> "她散进了星光里"
-                },
-                fontSize = 19.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
+            Text("✦ ✧ ✦", fontSize = 30.sp, color = Color(0xFFFFF3C4))
+            Spacer(Modifier.height(12.dp))
+            Text(StoryData.endingTitle(p.ended), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(8.dp))
             Text(
                 when (p.ended) {
-                    "A" -> "「归途」——星光替你照亮回家的路。"
-                    "B" -> "「永恒」——你们都不再孤单。"
-                    else -> "「消散」——掌心还留着一点温度。"
+                    "A" -> "「春风归途」——她带着记忆去了信里的小镇。"
+                    "B" -> "「小镇永远」——小屋的灯，总有人留着。"
+                    else -> "「永恒的约定」——烟花散进冬天，她看着这个小屋。"
                 },
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f),
             )
-            Spacer(Modifier.height(24.dp))
-            PrimaryButton(
-                text = "开启新的相伴",
-                onClick = {
-                    PetApp.audio.playSfx("sfx_levelup")
-                    PetApp.repo.clearState()
-                    PetApp.pet = null
-                    PetApp.bump()
-                },
-                modifier = Modifier.width(220.dp),
-            )
+            Spacer(Modifier.height(20.dp))
+            Box(
+                modifier = Modifier
+                    .width(200.dp)
+                    .background(Color(0xFFFF8FB8), RoundedCornerShape(14.dp))
+                    .clickable {
+                        PetApp.audio.playSfx("sfx_12_levelup")
+                        PetApp.audio.stopFinale()
+                        PetApp.repo.clearState()
+                        PetApp.pet = null
+                        PetApp.bump()
+                    }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("开启新的相伴", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFF5C1230))
+            }
         }
     }
 }

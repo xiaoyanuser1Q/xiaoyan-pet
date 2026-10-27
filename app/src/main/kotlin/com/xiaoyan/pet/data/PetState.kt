@@ -1,105 +1,131 @@
 package com.xiaoyan.pet.data
 
+import com.xiaoyan.pet.game.Rules
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * 小桃养成记 · 存档数据
- * 表面数值: 饥饿 / 心情 / 健康 / 亲密 (0-100)
- * 隐藏属性: 信任 / 探索 / 理解 (决定结局)
+ * 小桃养成记 v1.3.0 存档 (设定圣经 v3.1 · save_version = 3, 全新格式, 从零开始)。
  *
- * v1.2.0 存档兼容 (审计④): saveVersion=2, 所有字段 fromJson 用 optXxx + 默认值。
- * v1.1.0 云存档没有 choices/eventFlags 字段 = 未发生, 空集合兜底, 不丢档不错位。
+ * 表面 4 项: 饱食 / 心情 / 体力 / 亲密 (亲密决定体力上限档)
+ * 隐藏 3 线: 承诺 / 温度 / 好奇 (C 路径有效上限 104/103/110, 见 Rules)
+ * 旧档 (saveVersion=2) 文件保留但不自动加载; 云端 v2 行由新档 upsert 覆盖 (设计使然)。
  */
 data class PetState(
-    var name: String = "",            // 小桃的名字, 空 = 尚未开始
-    var missingThing: String = "",     // 玩家想找回的东西
+    var name: String = "",                    // 小桃的名字 (序幕起名), 空 = 尚未开始
+    var promiseAnswer: String = "",            // 序幕「你想许一个什么约」答案 (结局 C 用到)
     var level: Int = 1,
     var xp: Int = 0,
-    var hunger: Int = 80,
-    var mood: Int = 80,
-    var health: Int = 80,
-    var intimacy: Int = 50,
-    var trust: Int = 10,              // 隐藏: 信任
-    var exploration: Int = 10,        // 隐藏: 探索
-    var understanding: Int = 10,      // 隐藏: 理解
-    var lastOpenedMs: Long = 0L,
+    var xpToday: Int = 0,                      // 当日(自然日)已获 XP (抉择/事件豁免不计入)
+    var dayKey: String = "",                   // yyyy-MM-dd, 跨日重置 xpToday/日上限计数
+    var satiety: Int = 80,                     // 饱食
+    var mood: Int = 80,                        // 心情
+    var energy: Int = 5,                       // 体力 (上限跟亲密档, 睡觉回满)
+    var intimacy: Int = 50,                    // 亲密 (决定体力上限 5/7/10)
+    var promiseLine: Int = 0,                  // 隐藏: 承诺线
+    var warmthLine: Int = 0,                   // 隐藏: 温度线
+    var curiosityLine: Int = 0,                // 隐藏: 好奇线
+    var asleep: Boolean = false,               // 睡觉 → 夜间; 起床 → 早晨
+    var lastOpenMs: Long = 0L,
+    var lastSleepMs: Long = 0L,                // 睡觉 cd 15 分钟
     var interactions: Int = 0,
-    var ended: String = "",           // "" | "A" 归途 | "B" 永恒 | "C" 消散
-    var endingFirstWord: String = "", // 结局B: 玩家填入的第一句话
-    var endingSeen: Boolean = false,  // 结局是否已读完
-    var choices: MutableMap<String, String> = mutableMapOf(),    // v1.2.0: 每幕二选一结果
-    var eventFlags: MutableList<String> = mutableListOf()         // v1.2.0: 已触发随机小事件
+    var ended: String = "",                    // "" | "A" 春风归途 | "B" 小镇永远 | "C" 永恒的约定
+    var endingSeen: Boolean = false,
+    var endingChosen: String = "",             // Lv95 抉择结果 ("return"/"keep"/"truth")
+    var preLinesAt95: String = "",            // Lv95 选择前三线快照 "p/w/c" (B 判定用, 加分前)
+    var choices: MutableMap<String, String> = mutableMapOf(),      // "20"/"45"/"70"/"95" -> 选项 id
+    var eventsFired: MutableList<String> = mutableListOf(),         // 已触发事件 id (16 条各 1 次)
+    var dailyBookshelf: Int = 0,              // 书架讲故事故事 次/日 (上限 3, R5)
+    var dailyTv: Int = 0,                     // 电视 次/日 (上限 2, R5)
+    var lastAct: Int = 1,                     // 上次所在幕 (跨幕通知/补触发判定)
 ) {
     val started: Boolean get() = name.isNotEmpty()
 
-    val act: Int get() = when {
-        level >= 61 -> 3
-        level >= 31 -> 2
-        else -> 1
-    }
+    val act: Int get() = Rules.actOf(level)
 
-    val maxLevel: Boolean get() = level >= MAX_LEVEL
+    val maxLevel: Boolean get() = level >= Rules.MAX_LEVEL
 
-    fun xpNeed(): Int = 8 + level * 2
+    fun xpNeed(): Int = Rules.xpNeedFor(level)
 
-    fun isUnwell(): Boolean = hunger < 20 || mood < 20 || health < 20
+    fun energyCap(): Int = Rules.energyCapOf(intimacy)
+
+    fun isUnwell(): Boolean = satiety < 30 || mood < 20
+
+    fun dayPhaseForced(): String =
+        if (asleep) "night" else ""
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("saveVersion", SAVE_VERSION)
         put("name", name)
-        put("missingThing", missingThing)
+        put("promiseAnswer", promiseAnswer)
         put("level", level)
         put("xp", xp)
-        put("hunger", hunger)
+        put("xpToday", xpToday)
+        put("dayKey", dayKey)
+        put("satiety", satiety)
         put("mood", mood)
-        put("health", health)
+        put("energy", energy)
         put("intimacy", intimacy)
-        put("trust", trust)
-        put("exploration", exploration)
-        put("understanding", understanding)
-        put("lastOpenedMs", lastOpenedMs)
+        put("promiseLine", promiseLine)
+        put("warmthLine", warmthLine)
+        put("curiosityLine", curiosityLine)
+        put("asleep", asleep)
+        put("lastOpenMs", lastOpenMs)
+        put("lastSleepMs", lastSleepMs)
         put("interactions", interactions)
         put("ended", ended)
-        put("endingFirstWord", endingFirstWord)
         put("endingSeen", endingSeen)
-        put("choices", JSONObject().apply {
-            choices.forEach { (k, v) -> put(k, v) }
-        })
-        put("eventFlags", JSONArray().apply { eventFlags.forEach { put(it) } })
+        put("endingChosen", endingChosen)
+        put("preLinesAt95", preLinesAt95)
+        put("choices", JSONObject().apply { choices.forEach { (k, v) -> put(k, v) } })
+        put("eventsFired", JSONArray().apply { eventsFired.forEach { put(it) } })
+        put("dailyBookshelf", dailyBookshelf)
+        put("dailyTv", dailyTv)
+        put("lastAct", lastAct)
     }
 
     companion object {
         const val MAX_LEVEL = 100
-        const val SAVE_VERSION = 2
+        const val SAVE_VERSION = 3
 
-        /** 解析失败返回 null, 不抛异常; 全字段 opt 默认值 (v1.1.0 存档无缝升级) */
+        /** 解析失败/版本不符返回 null (全字段 opt + 默认值) */
         fun fromJson(text: String): PetState? = runCatching {
             val o = JSONObject(text)
+            if (o.optInt("saveVersion", -1) != SAVE_VERSION) return@runCatching null
             val choiceObj = o.optJSONObject("choices") ?: JSONObject()
-            val eventArr = o.optJSONArray("eventFlags") ?: JSONArray()
+            val eventArr = o.optJSONArray("eventsFired") ?: JSONArray()
             PetState(
                 name = o.optString("name", ""),
-                missingThing = o.optString("missingThing", ""),
+                promiseAnswer = o.optString("promiseAnswer", ""),
                 level = o.optInt("level", 1).coerceIn(1, MAX_LEVEL),
                 xp = o.optInt("xp", 0).coerceAtLeast(0),
-                hunger = o.optInt("hunger", 80).coerceIn(0, 100),
+                xpToday = o.optInt("xpToday", 0).coerceAtLeast(0),
+                dayKey = o.optString("dayKey", ""),
+                satiety = o.optInt("satiety", 80).coerceIn(0, 100),
                 mood = o.optInt("mood", 80).coerceIn(0, 100),
-                health = o.optInt("health", 80).coerceIn(0, 100),
+                energy = o.optInt("energy", 5).coerceAtLeast(0),
                 intimacy = o.optInt("intimacy", 50).coerceIn(0, 100),
-                trust = o.optInt("trust", 10).coerceIn(0, 100),
-                exploration = o.optInt("exploration", 10).coerceIn(0, 100),
-                understanding = o.optInt("understanding", 10).coerceIn(0, 100),
-                lastOpenedMs = o.optLong("lastOpenedMs", 0L),
+                promiseLine = o.optInt("promiseLine", 0),
+                warmthLine = o.optInt("warmthLine", 0),
+                curiosityLine = o.optInt("curiosityLine", 0),
+                asleep = o.optBoolean("asleep", false),
+                lastOpenMs = o.optLong("lastOpenMs", 0L),
+                lastSleepMs = o.optLong("lastSleepMs", 0L),
                 interactions = o.optInt("interactions", 0).coerceAtLeast(0),
                 ended = o.optString("ended", ""),
-                endingFirstWord = o.optString("endingFirstWord", ""),
                 endingSeen = o.optBoolean("endingSeen", false),
+                endingChosen = o.optString("endingChosen", ""),
+                preLinesAt95 = o.optString("preLinesAt95", ""),
                 choices = choiceObj.keys().asSequence().associateWith { choiceObj.optString(it, "") }.toMutableMap(),
-                eventFlags = (0 until eventArr.length()).map { eventArr.optString(it, "") }.filter { it.isNotEmpty() }.toMutableList()
-            ).also {
-                if (it.ended.isNotEmpty()) it.level = it.level.coerceAtMost(MAX_LEVEL)
-            }
+                eventsFired = (0 until eventArr.length()).map { eventArr.optString(it, "") }.filter { it.isNotEmpty() }.toMutableList(),
+                dailyBookshelf = o.optInt("dailyBookshelf", 0).coerceIn(0, 3),
+                dailyTv = o.optInt("dailyTv", 0).coerceIn(0, 2),
+                lastAct = o.optInt("lastAct", 1).coerceIn(1, 4),
+            )
         }.getOrNull()
+
+        /** 存档文本的 saveVersion (旧档 2 版检测用, 解析失败 -1) */
+        fun saveVersionOf(text: String?): Int =
+            if (text.isNullOrBlank()) -1 else runCatching { JSONObject(text).optInt("saveVersion", -1) }.getOrDefault(-1)
     }
 }

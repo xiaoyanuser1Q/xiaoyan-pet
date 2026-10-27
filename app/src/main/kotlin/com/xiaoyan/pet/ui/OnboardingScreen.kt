@@ -7,15 +7,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -27,34 +27,43 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaoyan.pet.PetApp
-import com.xiaoyan.pet.game.Story
+import com.xiaoyan.pet.game.StoryData
+import kotlinx.coroutines.delay
 
-/** 开场 (v1.2.0 横屏两栏): 左品牌文案, 右表单 (键盘只顶右栏) */
+/**
+ * 序幕 · 春夜雨 (v1.3.0 开场重写):
+ * 左 = 序幕旁白 (逐条显现); 右 = 起名 + 「你想许一个什么约？」(答案记入存档, 结局 C 用到)。
+ * 键盘只顶右栏 (横屏防裁切规则)。
+ */
 @Composable
-fun OnboardingScreen(modifier: Modifier = Modifier) {
+fun OnboardingScreen() {
     var name by remember { mutableStateOf("") }
-    var thing by remember { mutableStateOf("") }
+    var promise by remember { mutableStateOf("") }
+    var shownBeats by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        while (shownBeats < StoryData.PROLOGUE_BEFORE.size) {
+            delay(1600L)
+            shownBeats = shownBeats + 1
+        }
+    }
 
     Row(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(20.dp),
+        modifier = Modifier.fillMaxSize().padding(20.dp),
     ) {
-        // 左栏: 品牌
+        // 左栏: 序幕旁白
         Column(
             modifier = Modifier
                 .weight(0.5f)
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("小桃养成记", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(Modifier.height(12.dp))
-            Text(
-                Story.GREET,
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.85f),
-                lineHeight = 22.sp,
-            )
+            Text("序幕 · 春夜雨", fontSize = 15.sp, color = Color(0xFFFFB7D5))
+            Spacer(Modifier.height(10.dp))
+            StoryData.PROLOGUE_BEFORE.take(shownBeats).forEach { ln ->
+                Text(ln.text, fontSize = 14.sp, color = Color.White.copy(alpha = 0.88f), lineHeight = 22.sp)
+                Spacer(Modifier.height(8.dp))
+            }
         }
         // 右栏: 表单 (键盘只顶这一栏)
         Column(
@@ -64,12 +73,12 @@ fun OnboardingScreen(modifier: Modifier = Modifier) {
                 .imePadding(),
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("给它起个名字", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("给她起个名字", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it.take(12) },
-                label = { Text("名字", fontSize = 12.sp) },
+                placeholder = { Text("她的名字（12 字内）", fontSize = 12.sp) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 colors = fieldColors(),
@@ -77,14 +86,14 @@ fun OnboardingScreen(modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(14.dp))
 
-            Text("你最想找回的东西", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("你想许一个什么约？", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(4.dp))
             Text("她会一直记着。", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = thing,
-                onValueChange = { thing = it.take(30) },
-                label = { Text("想找回的东西", fontSize = 12.sp) },
+                value = promise,
+                onValueChange = { promise = it.take(30) },
+                placeholder = { Text("你的约（30 字内，可留空）", fontSize = 12.sp) },
                 singleLine = true,
                 colors = fieldColors(),
                 modifier = Modifier.fillMaxWidth(),
@@ -95,23 +104,9 @@ fun OnboardingScreen(modifier: Modifier = Modifier) {
                 text = "开始相伴",
                 enabled = name.isNotBlank(),
                 onClick = {
-                    PetApp.audio.playSfx("sfx_levelup")
-                    PetApp.startGame(name.trim(), thing.trim())
+                    PetApp.startGame(name.trim(), promise.trim())
                 },
             )
         }
     }
 }
-
-/** 深色背景上的输入框配色 */
-@Composable
-fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = Color.White,
-    focusedContainerColor = Color.White.copy(alpha = 0.10f),
-    unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
-    focusedBorderColor = Color(0xFFFFB7D5),
-    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-    focusedLabelColor = Color(0xFFFFB7D5),
-    unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-)

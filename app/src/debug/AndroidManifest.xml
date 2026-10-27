@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- debug 构建专属: 注册 DebugBootstrap (挂 debug 面板到 PetApp.debugPanel)。
+     release 构建不使用本 manifest (application 无 android:name), DebugBootstrap/DebugPanel 类不编译进包。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:name=".DebugBootstrap" />
+</manifest>
