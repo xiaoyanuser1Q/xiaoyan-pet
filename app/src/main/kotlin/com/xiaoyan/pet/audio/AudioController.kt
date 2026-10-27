@@ -128,11 +128,15 @@ class AudioController(context: Context) {
     fun ensureBgm() {
         if (!bgmEnabled) return
         val m = bgmA
-        if (m != null && m.isPlaying) return
-        if (m == null) {
-            bgmA = createPlayer(bgmRes) ?: return
+        if (m != null) {
+            if (m.isPlaying) return
+            runCatching { m.start() }   // 存在但停着 → 重新起播
+            return
         }
-        runCatching { m.start() }
+        // 不存在 → 新建再起播
+        val p = createPlayer(bgmRes) ?: return
+        bgmA = p
+        runCatching { p.start() }
     }
 
     /** BGM 开关 (设置页): 开=立即起播当前幕, 关=停 */

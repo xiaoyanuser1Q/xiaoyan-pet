@@ -115,11 +115,11 @@ fun DebugPanel() {
                     p.intimacy = intimacy.toIntOrNull()?.coerceIn(0, 100) ?: p.intimacy
                     p.lastOpenMs = System.currentTimeMillis()
                     PetApp.repo.saveState(p)
-                    PetApp.debugOpen = false
+                    PetApp.debugOpen.value = false
                     PetApp.bump()
                 }
                 QuickBtn("关闭") {
-                    PetApp.debugOpen = false
+                    PetApp.debugOpen.value = false
                     PetApp.bump()
                 }
             }

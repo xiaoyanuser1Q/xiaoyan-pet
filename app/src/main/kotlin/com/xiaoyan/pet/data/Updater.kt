@@ -230,7 +230,7 @@ object Updater {
         conn.readTimeout = 30_000
         conn.instanceFollowRedirects = true
         if (fromByte > 0) conn.setRequestProperty("Range", "bytes=$fromByte-")
-        conn.requestProperty("User-Agent", "xiaoyan-pet/1.3")
+        conn.setRequestProperty("User-Agent", "xiaoyan-pet/1.3")
         conn.connect()
         return conn
     }
@@ -241,7 +241,7 @@ object Updater {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 8_000
         conn.readTimeout = 8_000
-        conn.requestProperty("User-Agent", "Mozilla/5.0 (xiaoyan-pet updater)")
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (xiaoyan-pet updater)")
         if (header != null && value != null) conn.setRequestProperty(header, value)
         val code = try {
             conn.responseCode
@@ -277,14 +277,14 @@ object Updater {
         }
     }
 
-    /** 未授权 → 跳「安装未知应用」设置页 (API 29 P20 Pro 必触发一次) */
+    /** 未授权 → 跳「安装未知应用」设置页 (API 29 P20 Pro 必触发一次)。
+     *  MANAGE_UNKNOWN_APP_SOURCES 的 action 字符串自 O 起系统可识别 (常量 API33 才入 android.jar, 直用字符串避免 Unresolved) */
     fun openInstallPermission(ctx: Context) {
         val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Intent(android.provider.Settings.ACTION_MANAGE_APP_INSTALL_PACKAGES)
+            Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES")
                 .setData(Uri.parse("package:${ctx.packageName}"))
         } else {
-            Intent(android.provider.Settings.ACTION_UNKNOWN_APP_SOURCES)
-                .setData(Uri.parse("package:${ctx.packageName}"))
+            Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)
         }
         runCatching { ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }

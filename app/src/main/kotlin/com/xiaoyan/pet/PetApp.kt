@@ -10,6 +10,7 @@ import com.xiaoyan.pet.data.PetState
 import com.xiaoyan.pet.data.SaveRepository
 import com.xiaoyan.pet.data.SupabaseApi
 import com.xiaoyan.pet.data.Updater
+import kotlinx.coroutines.launch
 import com.xiaoyan.pet.game.ActionRes
 import com.xiaoyan.pet.game.DayPhase
 import com.xiaoyan.pet.game.GameLogic

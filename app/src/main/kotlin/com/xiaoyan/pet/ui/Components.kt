@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -140,9 +141,10 @@ fun GhostButton(
     }
 }
 
-/** 输入框配色 (深底白字): 登录/注册/起名共用 */
+/** 输入框配色 (深底白字): 登录/注册/起名共用。
+ *  material3 1.3.0 的 TextFieldColors 构造无全参默认值 → 用 TextFieldDefaults.colors() 取全量基线再 copy 覆盖 */
 @Composable
-fun fieldColors(): TextFieldColors = TextFieldColors(
+fun fieldColors(): TextFieldColors = TextFieldDefaults.colors().copy(
     cursorColor = Color.White,
     focusedTextColor = Color.White,
     unfocusedTextColor = Color.White,
