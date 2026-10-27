@@ -56,8 +56,14 @@ build-release:
     - mkdir -p app/keystore
     - echo "$KEYSTORE_BASE64" | base64 -d > app/keystore/release.keystore && ls -la app/keystore/release.keystore
     - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" :app:signingReport 2>&1 | tail -40
-    - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleRelease > build-release.log 2>&1 || { echo "=== assembleRelease FAILED — 全部编译错 (e: 行, 不截断) ==="; grep -E "^e: " build-release.log | head -300; echo "=== 日志尾 60 行 ==="; tail -60 build-release.log; exit 1; }
-    - echo "=== assembleRelease OK, 日志尾 30 行 ==="; tail -30 build-release.log
+    - >-
+      gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleRelease > build-release.log 2>&1 ||
+      { echo '=== assembleRelease FAILED, 全部编译错 (以 e 开头的行, 不截断) ===';
+      grep -E '^e:' build-release.log | head -300;
+      echo '=== 日志尾 60 行 ===';
+      tail -60 build-release.log;
+      exit 1; }
+    - echo 'assembleRelease OK, 日志尾 30 行'; tail -30 build-release.log
     - ls -la app/build/outputs/apk/release/
     - if [ -f app/build/outputs/apk/release/app-release.apk ]; then cp app/build/outputs/apk/release/app-release.apk xiaoyan-pet-v1.3.0-release.apk; else cp app/build/outputs/apk/release/*.apk xiaoyan-pet-v1.3.0-release.apk; fi
     - ls -la xiaoyan-pet-v1.3.0-release.apk
@@ -81,8 +87,14 @@ build-debug:
   needs: ["probe"]
   script:
     - export JAVA_TOOL_OPTIONS="-Xmx1400m -XX:MaxMetaspaceSize=512m"
-    - gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleDebug > build-debug.log 2>&1 || { echo "=== assembleDebug FAILED — 全部编译错 (e: 行, 不截断) ==="; grep -E "^e: " build-debug.log | head -300; echo "=== 日志尾 60 行 ==="; tail -60 build-debug.log; exit 1; }
-    - echo "=== assembleDebug OK, 日志尾 30 行 ==="; tail -30 build-debug.log
+    - >-
+      gradle --no-daemon -Dorg.gradle.jvmargs="-Xmx1400m -XX:MaxMetaspaceSize=512m" assembleDebug > build-debug.log 2>&1 ||
+      { echo '=== assembleDebug FAILED, 全部编译错 (以 e 开头的行, 不截断) ===';
+      grep -E '^e:' build-debug.log | head -300;
+      echo '=== 日志尾 60 行 ===';
+      tail -60 build-debug.log;
+      exit 1; }
+    - echo 'assembleDebug OK, 日志尾 30 行'; tail -30 build-debug.log
     - ls -la app/build/outputs/apk/debug/
     - cp app/build/outputs/apk/debug/app-debug.apk xiaoyan-pet-v1.3.0-debug.apk
     - ls -la xiaoyan-pet-v1.3.0-debug.apk
